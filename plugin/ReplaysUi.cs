@@ -268,8 +268,8 @@ namespace HsPuzzleBridge
             public float LengthX = 50.2f, LengthZ = -2.15f, LengthScale = 0.76f;
             public float MinionX = 26.35f, MinionZ = -3.9f, MinionScale = 0.82f;
             public float WatchX = 70.25f, WatchZ = -3.2f, WatchScale = 0.8f;
-            // The bug button (BugButton.cs): beside the Back button, in Back button heights from its centre.
-            public float BugX = -2.2f, BugZ = 0f, BugScale = 1f;
+            // The bug button (BugButton.cs), left of the Back button, in Back button heights: the gap to it, up, size.
+            public float BugX = 0.4f, BugZ = 0f, BugScale = 0.9f;
             // The settings strip above the rows (ReplaysSettings.cs): the rows start ListTop lower; the slider in the
             // first row's units (the Options menu's slider is built turned half round: 180 about y sets it upright).
             public float ListTop = 3.55f;

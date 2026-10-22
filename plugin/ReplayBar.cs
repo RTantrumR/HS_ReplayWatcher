@@ -35,7 +35,7 @@ namespace HsPuzzleBridge
         private const float RefHeight = 1080f;
         private const float BarW = 1200f, BarH = 50f, TopGap = 2f;
         private const float ButtonW = 46f, ButtonH = 34f, ButtonGap = 4f, Pad = 12f;
-        private const float TimeW = 58f, SpeedW = 50f, ToggleW = 34f, GripW = 14f, BugW = 38f, BugIconH = 28f;
+        private const float TimeW = 58f, SpeedW = 50f, ToggleW = 34f, GripW = 14f, BugW = 38f;
         private const float GrooveH = 16f, FillH = 6f, PipH = 34f, CombatH = 10f;
         private const float CombatEndPx = 3f, TrackHitH = 30f;
 
@@ -53,7 +53,7 @@ namespace HsPuzzleBridge
         // ------------------------------------------------------------------ objects
 
         private static GameObject _root;
-        private static MeshFilter _back, _fill, _front, _top, _bug;
+        private static MeshFilter _back, _fill, _front, _top;
         private static Material _material;
         private static Texture2D _kit;
         private static UberText _timeText, _endText, _speedText;
@@ -158,9 +158,6 @@ namespace HsPuzzleBridge
             _fill = Layer("Fill", 1);
             _front = Layer("Front", 2);
             _top = Layer("Top", 3);
-            _bug = Layer("Bug", 4);
-            var icon = BugButton.Icon();
-            if (icon != null) _bug.GetComponent<MeshRenderer>().sharedMaterial = new Material(shader) { mainTexture = icon, name = "ReplayBarBug" };
 
             _clock = bar.m_currentTime.transform;
             _timeText = Text(bar.m_currentTime, "Time");
@@ -647,14 +644,6 @@ namespace HsPuzzleBridge
             if (!Compact) b.Slice3(_track.x - 6f, _track.y - 2f, _track.width + 12f, _track.height + 4f, TrackPx, 8f);
             b.Apply(_back.sharedMesh);
 
-            // The bug's beetle on its pill, a little brighter under the mouse.
-            var bug = new Batch();
-            var br = ButtonRects[(int)Button.Bug];
-            byte lit = _hoverButton == Button.Bug ? (byte)255 : (byte)215;
-            bug.Rect(br.center.x - BugIconH / 2f, br.center.y - BugIconH / 2f, BugIconH, BugIconH,
-                     new RectInt(0, 0, AtlasSize, AtlasSize), new Color32(lit, lit, lit, 255));
-            bug.Apply(_bug.sharedMesh);
-
             var f = new Batch();
             if (Compact)
             {
@@ -735,7 +724,7 @@ namespace HsPuzzleBridge
         /// <summary>The button's symbol: gold triangles and bars over a dark copy one pixel down.</summary>
         private static void Glyph(Batch b, Button button, Rect r, bool hover)
         {
-            if (button == Button.Speed || button == Button.Bug) return; // a text, a picture
+            if (button == Button.Speed) return; // a text
             var shapes = new List<Vector2[]>();
             float cx = r.center.x, cy = r.center.y, h = 14f, w = 11f;
             Vector2[] Tri(float x, bool left) => left
@@ -767,9 +756,14 @@ namespace HsPuzzleBridge
                     }
                     else shapes.Add(Box(cx - 6f, cy + 3f, 12f, 3f)); // minimize: a low bar
                     break;
+                case Button.Bug:
+                    shapes.AddRange(BugGlyph.Shapes(new Vector2(cx, cy), 24f));
+                    break;
             }
             foreach (var s in shapes) b.Poly(s, new Vector2(1f, 1.5f), Shadow, Shadow);
             foreach (var s in shapes) b.Poly(s, Vector2.zero, hover ? GoldHover : Gold, hover ? Gold : GoldDark);
+            if (button == Button.Bug)
+                b.Poly(BugGlyph.Split(new Vector2(cx, cy), 24f), Vector2.zero, Shadow, Shadow);
         }
 
         // ------------------------------------------------------------------ texts
