@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vs/
+
+# .NET build output
+bin/
+obj/
+
+# Packet recordings of real games (large, account-linked)
+recordings/
+
+# Private: the docs are a repo of their own (RTantrumR/HS_ReplayWatcher-docs); CLAUDE.md imports them
+docs/
+CLAUDE.md

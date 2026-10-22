@@ -1,0 +1,24 @@
+name: Bug report
+description: Something in a replay or on the Replays page went wrong.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The bug button (the beetle on the replay bar or on the Replays page) fills in the details below and copies a
+        screenshot. Paste the screenshot with **Ctrl+V** and drag in the files from the folder it opened: the game
+        file lets the bug be replayed exactly where it happened.
+  - type: textarea
+    id: what
+    attributes:
+      label: What went wrong?
+      description: What you did, what you expected and what happened instead. Screenshot and files go here too.
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Versions, PC and where in the replay. The bug button fills this in.
+      render: text

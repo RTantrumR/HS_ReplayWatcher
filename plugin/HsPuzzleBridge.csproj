@@ -1,0 +1,100 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>com.testhsserver.puzzlebridge</AssemblyName>
+    <Product>HS Replay Watcher</Product>
+    <Version>0.28.0</Version>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>HsPuzzleBridge</RootNamespace>
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json;
+      https://nuget.bepinex.dev/v3/index.json
+    </RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <HearthstoneManagedPath>E:\Games\Hearthstone\Hearthstone_Data\Managed\</HearthstoneManagedPath>
+    <OutputPath>E:\Games\Hearthstone\BepInEx\plugins</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.*" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Compile against the live Unity 6 client's own assemblies; never copied to output. -->
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(HearthstoneManagedPath)Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="blizzard.bgsclient">
+      <HintPath>$(HearthstoneManagedPath)blizzard.bgsclient.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Blizzard.T5.Core">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Blizzard.T5.Network-Core">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.Network-Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Blizzard.T5.AssetLoader">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.AssetLoader.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Blizzard.T5.AssetManager">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.AssetManager.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Blizzard.T5.ServiceLocator">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.ServiceLocator.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(HearthstoneManagedPath)UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Blizzard.T5.Game">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.Game.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Blizzard.T5.UberText.Runtime">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.UberText.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Blizzard.T5.iTween">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.iTween.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(HearthstoneManagedPath)UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(HearthstoneManagedPath)UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(HearthstoneManagedPath)UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(HearthstoneManagedPath)UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(HearthstoneManagedPath)UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(HearthstoneManagedPath)UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>
