@@ -4,7 +4,7 @@ Watch your Hearthstone Battlegrounds games again, inside the game. Every Battleg
 recorded, and the new **Replays** page in the Battlegrounds lobby plays any of them back in the real client:
 jump to any moment, step through a fight, or watch at up to x4.
 
-**Beta.** Expect rough edges, and please report them: the beetle button opens a
+**Beta.** Expect rough edges, and please report them: the bug button opens a
 [bug report](../../issues) with the details already filled in.
 
 <p>
@@ -38,7 +38,7 @@ have it yet. If it's already there (from another mod), it's left as it is.
 
 ## Reporting a bug
 
-Click the beetle on the replay bar, or beside **Back** on the Replays page. It takes a screenshot, then opens a
+Click the bug on the replay bar, or left of **Back** on the Replays page. It takes a screenshot, then opens a
 new GitHub issue (you need a GitHub account) with your versions, PC and the moment of the replay filled in, and
 a folder with the files to attach:
 

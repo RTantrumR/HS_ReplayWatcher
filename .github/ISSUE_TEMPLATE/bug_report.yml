@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        The bug button (the beetle on the replay bar or on the Replays page) fills in the details below and copies a
+        The bug button (on the replay bar, and left of Back on the Replays page) fills in the details below and copies a
         screenshot. Paste the screenshot with **Ctrl+V** and drag in the files from the folder it opened: the game
         file lets the bug be replayed exactly where it happened.
   - type: textarea
