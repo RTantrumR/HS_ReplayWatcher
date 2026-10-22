@@ -7,11 +7,9 @@ jump to any moment, step through a fight, or watch at up to x4.
 **Beta.** Expect rough edges, and please report them: the bug button opens a
 [bug report](../../issues) with the details already filled in.
 
-<p>
-  <img src="images/replays-page.png" alt="The Replays page: one card per game with hero, trinkets, final board, place and length" width="32%">
-  <img src="images/replay-bar.png" alt="A replay with the replay bar at the top of the screen" width="32%">
-  <img src="images/hand.png" alt="A game's final hand opened under its card" width="32%">
-</p>
+![The Replays page: one card per game with hero, hero powers, trinkets, final board, place and length, and one game's final hand opened under its card](images/replays-page.webp)
+
+![A replay in the shop, with the replay bar and its timeline at the top of the screen](images/replay-bar.webp)
 
 - **Replays page:** Battlegrounds → **Replays** shows your last games, one card each: hero, hero powers,
   trinkets, final board and hand, place, date and length. **Watch** plays the game back.
@@ -69,7 +67,7 @@ changes a live match. The watcher sends nothing anywhere: the bug button only op
 
 ## License
 
-Copyright 2026 RTantrumR. Licensed under the [Apache License 2.0](LICENSE); see [NOTICE](NOTICE). Hearthstone's
+Copyright 2026 TantrumUA(RTantrumR). Licensed under the [Apache License 2.0](LICENSE); see [NOTICE](NOTICE). Hearthstone's
 art, fonts and text that the watcher shows stay Blizzard's: they're loaded from your own installation, and the
 license doesn't cover them. Built on [BepInEx](https://github.com/BepInEx/BepInEx) and
 [HarmonyX](https://github.com/BepInEx/HarmonyX), with Python's embeddable package for the replay server.
