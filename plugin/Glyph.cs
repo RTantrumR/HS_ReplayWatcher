@@ -31,6 +31,25 @@ namespace HsPuzzleBridge
                 yield return Segment(P(x, -0.11f), P(x * 0.85f, 0.35f), 0.05f * size);
         }
 
+        /// <summary>A forward arrow (as chat apps' Forward): a head pointing right at the top, its tail curving down to
+        /// the bottom left.</summary>
+        public static IEnumerable<Vector2[]> Share(Vector2 centre, float size)
+        {
+            Vector2 P(float x, float y) => centre + new Vector2(x, y) * size;
+            yield return new[] { P(0.06f, -0.44f), P(0.47f, -0.10f), P(0.06f, 0.24f) }; // head
+            // The tail: a quadratic curve from the head's base to the bottom left, as overlapping quads and joints.
+            Vector2 a = P(0.10f, -0.10f), c = P(-0.36f, -0.10f), b = P(-0.40f, 0.42f);
+            const int n = 8;
+            float w = 0.20f * size;
+            Vector2 Q(float t) => (1 - t) * (1 - t) * a + 2 * (1 - t) * t * c + t * t * b;
+            for (int i = 0; i < n; i++)
+            {
+                Vector2 p0 = Q(i / (float)n), p1 = Q((i + 1) / (float)n);
+                yield return Segment(p0, p1, w);
+                yield return Ellipse(p1, w / 2f, w / 2f, 10);
+            }
+        }
+
         public static Vector2[] Ellipse(Vector2 c, float rx, float ry, int n)
         {
             var pts = new Vector2[n];
@@ -51,16 +70,24 @@ namespace HsPuzzleBridge
         private static Vector2[] Box(Vector2 min, Vector2 max) =>
             new[] { min, new Vector2(max.x, min.y), max, new Vector2(min.x, max.y) };
 
-        /// <summary>The glyph in a unit square: the dark copy first, the gold over it, then the dark details.</summary>
-        public static Mesh Build(string name, IEnumerable<Vector2[]> shapes, IEnumerable<Vector2[]> details = null)
+        /// <summary>The glyph in a unit square: the dark copy first, the gold over it, then the dark details. The gold
+        /// darkens downwards over each shape, or (wholeGradient) over the whole glyph: a shape drawn as many pieces
+        /// (the share arrow's tail) would otherwise show bands.</summary>
+        public static Mesh Build(string name, IEnumerable<Vector2[]> shapes, IEnumerable<Vector2[]> details = null,
+                                 bool wholeGradient = false)
         {
             var v = new List<Vector3>();
             var c = new List<Color32>();
             var t = new List<int>();
+            var list = new List<Vector2[]>(shapes);
+            float g0 = float.MaxValue, g1 = float.MinValue;
+            foreach (var s in list)
+                foreach (var p in s) { g0 = Mathf.Min(g0, p.y); g1 = Mathf.Max(g1, p.y); }
             void Add(Vector2[] pts, Vector2 offset, Color32 top, Color32 bottom)
             {
                 float y0 = float.MaxValue, y1 = float.MinValue;
                 foreach (var p in pts) { y0 = Mathf.Min(y0, p.y); y1 = Mathf.Max(y1, p.y); }
+                if (wholeGradient) { y0 = g0; y1 = g1; }
                 int i = v.Count;
                 foreach (var p in pts)
                 {
@@ -69,7 +96,6 @@ namespace HsPuzzleBridge
                 }
                 for (int k = 1; k + 1 < pts.Length; k++) { t.Add(i); t.Add(i + k); t.Add(i + k + 1); }
             }
-            var list = new List<Vector2[]>(shapes);
             foreach (var s in list) Add(s, new Vector2(0.03f, 0.045f), Shadow, Shadow);
             foreach (var s in list) Add(s, Vector2.zero, Gold, GoldDark);
             if (details != null)

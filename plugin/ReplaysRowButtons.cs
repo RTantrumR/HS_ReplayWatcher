@@ -5,20 +5,29 @@ using UnityEngine;
 namespace HsPuzzleBridge
 {
     /// <summary>
-    /// The row's own buttons beside the star, drawn glyphs (<see cref="Glyph"/>) on the card: the trash bin on an
+    /// The row's own buttons beside the star, drawn glyphs (<see cref="Glyph"/>) on the card: the share arrow on
+    /// every row puts the game's shareable copy on the clipboard (<see cref="ReplayShare"/>); the trash bin on an
     /// imported game's row removes it from the imported folder (asking first unless the settings say not to; a
     /// starred copy stays in Saved). Each is a flat mesh under the row's root, facing the screen whatever the page's
-    /// frames are turned by, placed every frame where the layout says (TrashX/Z, its size TrashScale in row units),
-    /// clicked through the game's input (a PegUIElement on its collider).
+    /// frames are turned by, placed every frame where the layout says (ShareX/Z, TrashX/Z, their sizes in row
+    /// units), clicked through the game's input (a PegUIElement on its collider).
     /// </summary>
     internal static partial class ReplaysUi
     {
-        private static Mesh _trashMesh;
+        private static Mesh _trashMesh, _shareMesh;
 
         private static void UpdateRowButtons(RowParts p)
         {
             if (p.Root == null) return;
             var l = Layout.Current;
+            if (p.Share == null)
+            {
+                if (_shareMesh == null) _shareMesh = Glyph.Build("ShareButton", Glyph.Share(Vector2.zero, 1f), wholeGradient: true);
+                string id = p.Id;
+                var view = p.Set.View;
+                p.Share = RowGlyph(p, "ShareButton", _shareMesh, () => ReplayShare.Share(view, id));
+            }
+            PlaceRowGlyph(p, p.Share, l.ShareX, l.ShareZ, l.ShareScale);
             if (p.Set.View == ReplayLibrary.Imported)
             {
                 if (p.Trash == null)

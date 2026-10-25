@@ -264,7 +264,8 @@ namespace HsPuzzleBridge
             public float TrinketX = 17.75f, TrinketZ = -10.4f, TrinketScale = 2.9f, TrinketGap = 5.5f;
             public float NameX = 8.8f, NameZ = -14.4f, NameScale = 0.63f;
             public float StarX = 28.6f, StarZ = -1.4f, StarScale = 3.6f; // the save star (ReplaysSaved.cs): centre, its badge's height
-            public float TrashX = 24.4f, TrashZ = -1.4f, TrashScale = 2.6f; // an imported game's remove button: centre, size
+            public float TrashX = 24.6f, TrashZ = -1.15f, TrashScale = 2.2f; // an imported game's remove button: centre, size
+            public float ShareX = 21.4f, ShareZ = -1.15f, ShareScale = 2.2f; // the share button
             public float PlaceX = 34f, PlaceZ = -2f, PlaceScale = 0.84f, PlaceTextLift = 0.6f; // the text above its tab's centre
             public float DateX = 60.95f, DateZ = -2.15f, DateScale = 0.76f;
             public float LengthX = 50.2f, LengthZ = -2.15f, LengthScale = 0.76f;
@@ -390,7 +391,7 @@ namespace HsPuzzleBridge
             public Renderer HeartIcon;
             public float HeartY, HeartUnit; // the badge's lift, and its scale per row unit of height (ReplaysSaved.cs)
             public bool? HeartSaved;
-            public Transform Trash; // the remove button of an imported game (ReplaysRowButtons.cs)
+            public Transform Trash, Share; // an imported game's remove button, every game's share (ReplaysRowButtons.cs)
             public Transform Row, Root, Bg, Hero, HeroPower, DualHeroPower, Trinket1, Trinket2, Minions, Watch;
             // The icon slots holding a trinket (a hero power slot can: see PastGame), for OpenTrinkets.
             public readonly List<Transform> TrinketSlots = new List<Transform>();

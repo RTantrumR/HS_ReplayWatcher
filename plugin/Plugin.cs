@@ -99,6 +99,9 @@ namespace HsPuzzleBridge
         /// <summary>The bug reports' folders (<see cref="BugReport"/>).</summary>
         internal static string Reports => Path.Combine(DataDir, "Reports");
 
+        /// <summary>The shareable copy last put on the clipboard (<see cref="ReplayShare"/>).</summary>
+        internal static string Shared => Path.Combine(DataDir, "Shared");
+
         internal static string Server =>ServerDir.Value.Length > 0 ? ServerDir.Value : Path.Combine(InstallDir, "server");
 
         internal static string Python => PythonExe.Value.Length > 0 ? PythonExe.Value : Path.Combine(InstallDir, "python", "python.exe");
@@ -118,6 +121,7 @@ namespace HsPuzzleBridge
                 ReplayBar.Update();
                 ReconnectPopup.Update();
                 FolderPicker.Update();
+                ReplayShare.Update();
                 SpectatorJoin.Update();
                 CombatDoneNote.Update();
                 UiDump.Update();
@@ -138,6 +142,7 @@ namespace HsPuzzleBridge
             Probe("bar", ReplayBar.Update);
             Probe("reconnect", ReconnectPopup.Update);
             Probe("picker", FolderPicker.Update);
+            Probe("share", ReplayShare.Update);
             Probe("spectator", SpectatorJoin.Update);
             Probe("combatnote", CombatDoneNote.Update);
             Probe("dump", UiDump.Update);

@@ -65,6 +65,7 @@ namespace HsPuzzleBridge
             Element("Watch", "Watch", null, 0.3f, 3f),
             Element("Star", "Star", null, 0.3f, 5f),
             Element("Trash", "Trash", null, 0.3f, 5f),
+            Element("Share", "Share", null, 0.3f, 5f),
             Element("Bug", "Bug", null, 0.3f, 3f),
             new Tab { Name = "Hand", Color = "HandCountColor", Values = new[]
             {
