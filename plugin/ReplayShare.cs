@@ -6,7 +6,7 @@ namespace HsPuzzleBridge
 {
     /// <summary>
     /// A row's share button: the game's shareable copy (hsserver.share: the account's and the machine's details
-    /// blanked; the lobby's names stay, the leaderboard shows them) is written to %LOCALAPPDATA%\HS Replay
+    /// blanked; a recording holds no player names, only the account's ids in the game's start) is written to %LOCALAPPDATA%\HS Replay
     /// Watcher\Shared (the copies before it removed) and put on the clipboard as a file, so Ctrl+V in a chat attaches
     /// it; the game's status line says so. The copy takes a second or two, in its own process.
     /// </summary>
