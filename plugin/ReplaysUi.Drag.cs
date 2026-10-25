@@ -36,6 +36,7 @@ namespace HsPuzzleBridge
             new DragTarget { Tab = "Minions", X = "MinionX", Z = "MinionZ", Size = "MinionScale", Objects = p => new[] { p.Minions } },
             new DragTarget { Tab = "Watch", X = "WatchX", Z = "WatchZ", Size = "WatchScale", Objects = p => new[] { p.Watch } },
             new DragTarget { Tab = "Star", X = "StarX", Z = "StarZ", Size = "StarScale", Objects = p => new[] { p.Heart } },
+            new DragTarget { Tab = "Trash", X = "TrashX", Z = "TrashZ", Size = "TrashScale", Objects = p => new[] { p.Trash } },
             new DragTarget { Tab = "Hand", X = "HandX", Z = "HandZ", Size = "HandScale", Objects = p => new[] { p.Hand?.Icon } },
         };
 

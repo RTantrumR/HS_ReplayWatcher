@@ -240,11 +240,28 @@ namespace HsPuzzleBridge
         }
 
         /// <summary>A game saved or unsaved: its row goes into (or out of) the saved folder's rows file at once, so
-        /// the Saved view is right the moment the heart is clicked; the catalog scan (which decodes nothing for a
+        /// the Saved view is right the moment the star is clicked; the catalog scan (which decodes nothing for a
         /// copy it already knows) writes the same rows later.</summary>
         public static void SetSavedRow(string id, bool saved)
         {
-            string path = RowsPath(Saved);
+            if (!saved) { SetRow(Saved, id, null); return; }
+            string row = RowOf(Recent, id) ?? RowOf(Imported, id);
+            if (row == null) { Plugin.Log.LogWarning("Replays: no row to copy for " + id); return; }
+            SetRow(Saved, id, row);
+        }
+
+        /// <summary>A game's row in a view's rows file, or null.</summary>
+        private static string RowOf(View view, string id)
+        {
+            foreach (string line in (view.RowsText ?? "").Split('\n'))
+                if (line.StartsWith(id + "|")) return line.TrimEnd('\r');
+            return null;
+        }
+
+        /// <summary>A game's row put into (row) or taken out of (null) a view's rows file, then the rows re-read.</summary>
+        public static void SetRow(View view, string id, string row)
+        {
+            string path = RowsPath(view);
             if (path == null) return;
             try
             {
@@ -252,21 +269,14 @@ namespace HsPuzzleBridge
                 if (File.Exists(path))
                     foreach (string line in File.ReadAllText(path).Split('\n'))
                         if (line.Trim().Length > 0 && !line.StartsWith(id + "|")) lines.Add(line.TrimEnd('\r'));
-                if (saved)
-                {
-                    string row = null;
-                    foreach (string line in (Recent.RowsText ?? "").Split('\n'))
-                        if (line.StartsWith(id + "|")) { row = line.TrimEnd('\r'); break; }
-                    if (row == null) { Plugin.Log.LogWarning("Replays: no row to copy for " + id); return; }
-                    lines.Add(row);
-                }
+                if (row != null) lines.Add(row);
                 lines.Sort((a, b) => string.CompareOrdinal(b, a)); // newest first, as the catalog writes them
                 string tmp = path + ".tmp";
                 File.WriteAllText(tmp, string.Join("\n", lines.ToArray()));
                 if (File.Exists(path)) File.Replace(tmp, path, null);
                 else File.Move(tmp, path);
             }
-            catch (Exception e) { Plugin.Log.LogWarning($"Replays: can't update the saved rows: {e.Message}"); }
+            catch (Exception e) { Plugin.Log.LogWarning($"Replays: can't update the {view.Name} rows: {e.Message}"); }
             LoadRows();
         }
 

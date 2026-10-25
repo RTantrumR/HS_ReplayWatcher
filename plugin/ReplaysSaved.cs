@@ -13,14 +13,13 @@ namespace HsPuzzleBridge
     ///   views: recent, saved, and imported (other players' games, and those converted from Power.log); it names the
     ///   next one, the title the shown one.
     /// - The star: each portrait's own favourite badge (FavoriteIconParent, the BG skin collection's heart) with
-    ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on every recent and
-    ///   saved row: full for a saved game, greyed otherwise; clicking it saves or unsaves. Imported games have none
-    ///   yet.
-    /// - Saving copies the recording into the saved folder (the first time, the folder is asked for); the game stays
-    ///   in the recent list until the limit takes it.
+    ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on every row: full for a
+    ///   saved game, greyed otherwise; clicking it saves or unsaves.
+    /// - Saving copies the recording (a recent or an imported one) into the saved folder (the first time, the folder
+    ///   is asked for); the game stays in its list (a recent one until the limit takes it).
     /// - Unsaving asks first (<see cref="ConfirmPopup"/>; the settings can turn the asking off): still in the recent
-    ///   list, the saved copy is removed; otherwise it moves back to the recent list if that has room, else it is
-    ///   deleted.
+    ///   or the imported list, the saved copy is removed; one saved from the imported list (FromImportedFile) moves
+    ///   back there; otherwise it moves back to the recent list if that has room, else it is deleted.
     /// </summary>
     internal static partial class ReplaysUi
     {
@@ -97,7 +96,11 @@ namespace HsPuzzleBridge
                 _shownVersion = ReplayLibrary.Current.Version;
                 ShowView();
             }
-            foreach (var p in AllParts) UpdateHeart(p);
+            foreach (var p in AllParts)
+            {
+                UpdateHeart(p);
+                UpdateRowButtons(p);
+            }
         }
 
         // ------------------------------------------------------------------ stars
@@ -157,13 +160,6 @@ namespace HsPuzzleBridge
         private static void UpdateHeart(RowParts p)
         {
             if (p.Root == null || p.Hero == null) return;
-            if (p.Set.View == ReplayLibrary.Imported)
-            {
-                // No star on an imported game: the badge is kept off (and gets no click listener).
-                if (p.Heart == null) p.Heart = Find(p.Hero, "FavoriteIconParent");
-                if (p.Heart != null && p.Heart.gameObject.activeSelf) p.Heart.gameObject.SetActive(false);
-                return;
-            }
             if (p.Heart == null)
             {
                 p.Heart = Find(p.Hero, "FavoriteIconParent");
@@ -221,13 +217,15 @@ namespace HsPuzzleBridge
                 PickSavedDir(() => Save(id));
                 return;
             }
-            string src = ReplayLibrary.RecordingIn(Plugin.Recordings, id);
+            string recent = ReplayLibrary.RecordingIn(Plugin.Recordings, id);
+            string src = recent ?? ReplayLibrary.RecordingIn(ReplayLibrary.ImportedDir, id);
             if (src == null) { Plugin.Log.LogWarning("Replays: no recording to save for " + id); return; }
             string dst = Path.Combine(ReplayLibrary.SavedDir, Path.GetFileName(src));
             try
             {
                 Directory.CreateDirectory(ReplayLibrary.SavedDir);
                 if (!File.Exists(dst)) File.Copy(src, dst);
+                if (recent == null) SetFromImported(id, true);
                 Plugin.Log.LogInfo($"Replays: saved {id} to {ReplayLibrary.SavedDir}");
             }
             catch (Exception e)
@@ -292,6 +290,21 @@ namespace HsPuzzleBridge
                           "The saved copy will be removed. The game stays in your recent replays.",
                           "Remove", () => AfterUnsave(id, () => File.Delete(saved)));
             }
+            else if (ReplayLibrary.RecordingIn(ReplayLibrary.ImportedDir, id) != null)
+            {
+                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?",
+                          "The saved copy will be removed. The game stays in your imported replays.",
+                          "Remove", () => AfterUnsave(id, () => File.Delete(saved)));
+            }
+            else if (FromImported(id))
+            {
+                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?", "The replay will be moved back to your imported replays.",
+                          "Remove", () => AfterUnsave(id, () =>
+                          {
+                              Directory.CreateDirectory(ReplayLibrary.ImportedDir);
+                              File.Move(saved, Path.Combine(ReplayLibrary.ImportedDir, Path.GetFileName(saved)));
+                          }));
+            }
             else if (ReplayLibrary.RecentIds.Count >= Plugin.KeepGames.Value)
             {
                 AskUnless(Plugin.NoAskRemove.Value && Plugin.NoAskDelete.Value, "Delete this replay?",
@@ -312,11 +325,42 @@ namespace HsPuzzleBridge
             else ConfirmPopup.Ask(header, text, action, confirmed);
         }
 
+        // The saved games that came from the imported list (one id a line, in the saved folder): unsaved once they
+        // are gone from there, they go back to it, not to the recent list.
+        private const string FromImportedFile = ".from_imported.txt";
+
+        private static bool FromImported(string id)
+        {
+            try
+            {
+                string path = Path.Combine(ReplayLibrary.SavedDir, FromImportedFile);
+                return File.Exists(path) && Array.IndexOf(File.ReadAllLines(path), id) >= 0;
+            }
+            catch (Exception e) { Plugin.Log.LogWarning("Replays: can't read " + FromImportedFile + ": " + e.Message); return false; }
+        }
+
+        private static void SetFromImported(string id, bool on)
+        {
+            try
+            {
+                string path = Path.Combine(ReplayLibrary.SavedDir, FromImportedFile);
+                var ids = new System.Collections.Generic.List<string>();
+                if (File.Exists(path))
+                    foreach (string line in File.ReadAllLines(path))
+                        if (line.Length > 0 && line != id) ids.Add(line);
+                if (on) ids.Add(id);
+                if (ids.Count > 0) File.WriteAllLines(path, ids.ToArray());
+                else if (File.Exists(path)) File.Delete(path);
+            }
+            catch (Exception e) { Plugin.Log.LogWarning("Replays: can't update " + FromImportedFile + ": " + e.Message); }
+        }
+
         private static void AfterUnsave(string id, Action change)
         {
             try
             {
                 change();
+                SetFromImported(id, false);
                 Plugin.Log.LogInfo("Replays: unsaved " + id);
             }
             catch (Exception e)
