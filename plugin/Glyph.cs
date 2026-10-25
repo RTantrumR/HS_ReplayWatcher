@@ -12,8 +12,43 @@ namespace HsPuzzleBridge
     internal static class Glyph
     {
         public static readonly Color Idle = new Color(0.85f, 0.85f, 0.85f, 1f);
-        private static readonly Color32 Gold = new Color32(255, 214, 110, 255), GoldDark = new Color32(196, 140, 40, 255),
-                                        Shadow = new Color32(0, 0, 0, 200);
+
+        /// <summary>A glyph's colours: its face from top to bottom, the copy offset under it (none: alpha 0), its
+        /// details, and an outline round it (none: alpha 0).</summary>
+        public struct Palette
+        {
+            public Color32 Top, Bottom, Shadow, Detail, Outline;
+        }
+
+        private const float OutlineWidth = 0.05f; // of the glyph's box
+
+        /// <summary>The bar's and the bug button's: gold over a dark copy.</summary>
+        public static readonly Palette GoldPalette = new Palette
+        {
+            Top = new Color32(255, 214, 110, 255), Bottom = new Color32(196, 140, 40, 255),
+            Shadow = new Color32(0, 0, 0, 200), Detail = new Color32(0, 0, 0, 200),
+        };
+
+        /// <summary>The row buttons in the place's tab, as the unsaved star beside them: grey in a black outline
+        /// (2026-10-25: plain grey and plain near black were tried; the owner chose this). Hovered, each takes its own
+        /// colour: the trash bin red, the share arrow blue (the star turns gold).</summary>
+        public static readonly Palette GreyPalette = new Palette
+        {
+            Top = new Color32(168, 168, 168, 255), Bottom = new Color32(112, 112, 112, 255),
+            Detail = new Color32(40, 40, 40, 255), Outline = new Color32(16, 14, 12, 255),
+        };
+
+        public static readonly Palette RedPalette = new Palette
+        {
+            Top = new Color32(240, 96, 72, 255), Bottom = new Color32(176, 36, 24, 255),
+            Detail = new Color32(70, 12, 8, 255), Outline = new Color32(16, 14, 12, 255),
+        };
+
+        public static readonly Palette BluePalette = new Palette
+        {
+            Top = new Color32(120, 190, 255, 255), Bottom = new Color32(40, 112, 214, 255),
+            Detail = new Color32(10, 30, 70, 255), Outline = new Color32(16, 14, 12, 255),
+        };
 
         /// <summary>A trash bin: handle, lid, a body narrowing downwards; its three slits are <see cref="TrashSlits"/>.</summary>
         public static IEnumerable<Vector2[]> Trash(Vector2 centre, float size)
@@ -74,8 +109,9 @@ namespace HsPuzzleBridge
         /// darkens downwards over each shape, or (wholeGradient) over the whole glyph: a shape drawn as many pieces
         /// (the share arrow's tail) would otherwise show bands.</summary>
         public static Mesh Build(string name, IEnumerable<Vector2[]> shapes, IEnumerable<Vector2[]> details = null,
-                                 bool wholeGradient = false)
+                                 bool wholeGradient = false, Palette? palette = null)
         {
+            var pal = palette ?? GoldPalette;
             var v = new List<Vector3>();
             var c = new List<Color32>();
             var t = new List<int>();
@@ -96,10 +132,19 @@ namespace HsPuzzleBridge
                 }
                 for (int k = 1; k + 1 < pts.Length; k++) { t.Add(i); t.Add(i + k); t.Add(i + k + 1); }
             }
-            foreach (var s in list) Add(s, new Vector2(0.03f, 0.045f), Shadow, Shadow);
-            foreach (var s in list) Add(s, Vector2.zero, Gold, GoldDark);
+            if (pal.Shadow.a > 0)
+                foreach (var s in list) Add(s, new Vector2(0.03f, 0.045f), pal.Shadow, pal.Shadow);
+            // The outline: the shapes drawn under the face, moved a little each way round (eight directions).
+            if (pal.Outline.a > 0)
+                for (int k = 0; k < 8; k++)
+                {
+                    float a = k * (float)System.Math.PI / 4f;
+                    var o = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * OutlineWidth;
+                    foreach (var s in list) Add(s, o, pal.Outline, pal.Outline);
+                }
+            foreach (var s in list) Add(s, Vector2.zero, pal.Top, pal.Bottom);
             if (details != null)
-                foreach (var s in details) Add(s, Vector2.zero, Shadow, Shadow);
+                foreach (var s in details) Add(s, Vector2.zero, pal.Detail, pal.Detail);
             var mesh = new Mesh { name = name };
             mesh.SetVertices(v);
             mesh.SetColors(c);

@@ -172,7 +172,11 @@ namespace HsPuzzleBridge
                 {
                     var element = icon.GetComponent<PegUIElement>() ?? icon.gameObject.AddComponent<PegUIElement>();
                     string id = p.Id;
+                    var parts = p;
                     element.AddEventListener(UIEventType.RELEASE, e => OnHeart(id));
+                    // Hovered, an unsaved star shows gold, as the row's other buttons take their colour.
+                    element.AddEventListener(UIEventType.ROLLOVER, e => parts.HeartHover = true);
+                    element.AddEventListener(UIEventType.ROLLOUT, e => parts.HeartHover = false);
                 }
                 p.Heart.SetParent(p.Root, true);
                 p.HeartY = p.Heart.localPosition.y;
@@ -193,7 +197,7 @@ namespace HsPuzzleBridge
             if (!p.Heart.gameObject.activeSelf) p.Heart.gameObject.SetActive(true);
             if (p.HeartIcon == null) return;
             if (!p.HeartIcon.gameObject.activeSelf) p.HeartIcon.gameObject.SetActive(true);
-            bool saved = p.Set.View == ReplayLibrary.Saved || ReplayLibrary.SavedIds.Contains(p.Id);
+            bool saved = p.Set.View == ReplayLibrary.Saved || ReplayLibrary.SavedIds.Contains(p.Id) || p.HeartHover;
             if (p.HeartSaved == saved) return;
             p.HeartSaved = saved;
             var block = new MaterialPropertyBlock();
