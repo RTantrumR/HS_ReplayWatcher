@@ -18,8 +18,23 @@ jump to any moment, step through a fight, or watch at up to x4.
   buttons; **F10** hides it.
 - **Keys:** **Space** pause · **←/→** previous/next event · **Ctrl+←/→** previous/next turn ·
   **Enter/Backspace** one step · **+/−** speed.
-- **Keep the last 5 to 50 games** (a slider on the page). The **star** on a card saves that game to a folder
-  of your choice, outside the Hearthstone folder, where it stays.
+- **Three lists**, switched with the arrows on the page's title: **Replays** (your last 5 to 50 games, set in
+  **Settings**), **Saved** and **Imported**. The **star** on a card saves that game to a folder of your choice,
+  outside the Hearthstone folder, where it stays. Saved and Imported can be sorted by date, place, hero or
+  length.
+
+## Sharing replays
+
+- **Send:** click the arrow next to a game's place. The game is copied to your clipboard as a file: press
+  **Ctrl+V** in Discord, Telegram or any chat to attach it.
+- **Receive:** copy the file you got (in Explorer) and press **Ctrl+V** on the Replays page, or use **Import**
+  in the Imported list, or drop it into the `Imported` folder. Import also takes a `Power.log` from Hearthstone's
+  `Logs` folder and turns its Battlegrounds games into replays.
+- **Remove** an imported game with the bin next to its star. **Settings** can turn off the "are you sure"
+  prompts for removing games.
+
+A shared file has your account's session passwords and your PC's name and device id removed. An imported file
+is checked line by line before the watcher uses it, and only a clean copy rebuilt from it is kept.
 
 ## Install
 
@@ -50,8 +65,8 @@ replays exactly as yours does.
 ## Uninstall
 
 Windows Settings → Apps → HS Replay Watcher → Uninstall. BepInEx is removed too, unless another mod still uses
-it or it was there before. Your recordings stay in `%LOCALAPPDATA%\HS Replay Watcher`; delete that folder to
-remove them as well.
+it or it was there before. Your recordings stay in `%LOCALAPPDATA%\HS Replay Watcher`, and saved and imported
+games in the folder you chose; delete those folders to remove them as well.
 
 ## Troubleshooting
 
