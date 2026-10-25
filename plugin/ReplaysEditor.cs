@@ -92,13 +92,15 @@ namespace HsPuzzleBridge
             new Tab { Name = "Strip", Color = "StripColor", Values = new[]
             {
                 new Param("ListTop", "List top", 0f, 20f, 0.25f), new Param("ScrollRows", "Wheel rows", 0.25f, 10f, 0.25f),
-                new Param("SwitchX", "Switch X", -10f, 80f, 0.25f), new Param("SwitchZ", "Switch Y", -30f, 10f, 0.1f),
-                new Param("SwitchScale", "Switch size", 0.3f, 3f, 0.05f),
+                new Param("TitleArrowX", "Title arrows apart", 0f, 10f, 0.05f), new Param("TitleArrowZ", "Title arrows Y", -5f, 5f, 0.05f),
+                new Param("TitleArrowSize", "Title arrows size", 1f, 15f, 0.25f), new Param("TitleArrowRot", "Title arrows turn", -180f, 180f, 15f),
                 new Param("SizeX", "Size X", -10f, 80f, 0.25f), new Param("SizeZ", "Size Y", -30f, 10f, 0.1f),
                 new Param("SettingsX", "Settings X", -10f, 80f, 0.25f), new Param("SettingsZ", "Settings Y", -30f, 10f, 0.1f),
                 new Param("SettingsScale", "Settings size", 0.3f, 3f, 0.05f),
                 new Param("ImportX", "Import X", -10f, 80f, 0.25f), new Param("ImportZ", "Import Y", -30f, 10f, 0.1f),
                 new Param("SortX", "Sort X", -10f, 80f, 0.25f), new Param("SortZ", "Sort Y", -30f, 10f, 0.1f),
+                new Param("SortScale", "Sort size", 0.5f, 10f, 0.1f), new Param("SortRotY", "Sort turn", -180f, 180f, 90f),
+                new Param("SortWidth", "Sort width (reopen)", 0.3f, 1.5f, 0.05f), new Param("SortFont", "Sort font (reopen)", 0.5f, 2.5f, 0.05f),
                 new Param("StripTextScale", "Text size", 0.2f, 2f, 0.02f), new Param("StripTextWidth", "Text width", 5f, 60f, 0.5f),
                 new Param("StripEmptyWidth", "Empty line width", 10f, 80f, 0.5f),
                 new Param("StripPlate", "Plate", 0f, ReplaysUi.PlateStyles.Length - 1, 1f),

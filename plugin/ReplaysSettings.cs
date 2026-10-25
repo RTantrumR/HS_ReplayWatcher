@@ -9,10 +9,9 @@ using UnityEngine;
 namespace HsPuzzleBridge
 {
     /// <summary>
-    /// The strip above the replay rows: the view switch at its left (ReplaysSaved.cs), the shown view's size in the
-    /// middle ("N games, X MB", from its folder's files; counted again only when the view's rows change), or the
-    /// empty list's line, the sort button in the saved and imported views (ReplaysSort.cs), the Import button in the
-    /// imported view (ReplaysImport.cs), and the Settings button at its
+    /// The strip above the replay rows: the sort dropdown at its left (saved and imported; ReplaysSort.cs), the shown
+    /// view's size in the middle ("N games, X MB", from its folder's files; counted again only when the view's rows change), or the
+    /// empty list's line, the Import button in the imported view (ReplaysImport.cs), and the Settings button at its
     /// right, which opens <see cref="ReplaysOptions"/> (how many recent games are kept, the remove prompts). The
     /// texts are copies of the row's name text, as the rows' are.
     /// </summary>
@@ -40,10 +39,10 @@ namespace HsPuzzleBridge
             if (_stripTextSource != null) _sizeText = NewText(_stripTextSource, "ViewSize", "", _strip);
             else Plugin.Log.LogWarning("Replays strip: the stock row has no HeroName text; the strip has no texts");
             PlaceStrip(Layout.Current);
-            CreateSwitch();
+            CreateViewControls();
             _settings = StripButton("SettingsButton", "Settings", ReplaysOptions.Show);
             _importButton = StripButton("ImportButton", "Import", PickImport);
-            _sortButton = StripButton("SortButton", SortNames[SortOf(ReplayLibrary.Current)], NextSort);
+            CreateSortDropdown();
             ShowView();
             ColourStrip();
         }
@@ -74,7 +73,7 @@ namespace HsPuzzleBridge
             PlaceStripText(_sizeText, l.SizeX, l.SizeZ, l.StripTextWidth, l, UberText.AlignmentOptions.Center);
             PlaceStripButton(_settings, l.SettingsX, l.SettingsZ, l.SettingsScale);
             PlaceStripButton(_importButton, l.ImportX, l.ImportZ, l.SettingsScale);
-            PlaceStripButton(_sortButton, l.SortX, l.SortZ, l.SettingsScale);
+            PlaceSortDropdown(l);
         }
 
         private static void PlaceStripButton(Transform button, float x, float z, float scale)

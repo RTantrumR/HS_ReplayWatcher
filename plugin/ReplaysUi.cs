@@ -268,8 +268,8 @@ namespace HsPuzzleBridge
             public float TrinketX = 17.75f, TrinketZ = -10.4f, TrinketScale = 2.9f, TrinketGap = 5.5f;
             public float NameX = 8.8f, NameZ = -14.4f, NameScale = 0.63f;
             public float StarX = 28.6f, StarZ = -1.4f, StarScale = 3.6f; // the save star (ReplaysSaved.cs): centre, its badge's height
-            public float TrashX = 25.4f, TrashZ = -1.4f, TrashScale = 2.1f; // an imported game's remove button: centre, size
-            public float ShareX = 38.8f, ShareZ = -1.4f, ShareScale = 2.1f; // the share button
+            public float TrashX = 25.8f, TrashZ = -1.4f, TrashScale = 1.8f; // an imported game's remove button: centre, size
+            public float ShareX = 38.6f, ShareZ = -1.4f, ShareScale = 1.8f; // the share button
             public float PlaceX = 34f, PlaceZ = -2f, PlaceScale = 0.84f, PlaceTextLift = 0.6f; // the text above its tab's centre
             public float DateX = 60.95f, DateZ = -2.15f, DateScale = 0.76f;
             public float LengthX = 50.2f, LengthZ = -2.15f, LengthScale = 0.76f;
@@ -277,15 +277,17 @@ namespace HsPuzzleBridge
             public float WatchX = 70.25f, WatchZ = -3.2f, WatchScale = 0.8f;
             // The bug button (BugButton.cs), left of the Back button, in Back button heights: the gap to it, up, size.
             public float BugX = 0.4f, BugZ = 0f, BugScale = 0.9f;
+            // The views' arrows beside the page's title (ReplaysSaved.cs): their distance from it in the title's frame
+            // units, their lift, width (world units), and the turn of the dropdown's downward arrow.
+            public float TitleArrowX = 1.8f, TitleArrowZ = 0f, TitleArrowSize = 2.6f, TitleArrowRot = 90f;
             // The strip above the rows (ReplaysSettings.cs): the rows start ListTop lower; its parts in the first row's
-            // units: the view switch at its left, the view's size (or the empty list's line) centred at SizeX, the
-            // Settings button at its right.
+            // units: the sort dropdown at its left (saved and imported), the view's size (or the empty list's line)
+            // centred at SizeX, the Import and Settings buttons at its right.
             public float ListTop = 3.55f;
-            public float SwitchX = 9f, SwitchZ = -0.25f, SwitchScale = 0.8f;
             public float SizeX = 40f, SizeZ = -0.25f;
             public float SettingsX = 70.25f, SettingsZ = -0.25f, SettingsScale = 0.8f;
             public float ImportX = 59.5f, ImportZ = -0.25f; // the imported view's Import button (Settings' size)
-            public float SortX = 22.75f, SortZ = -0.25f; // the saved and imported views' sort button (Settings' size)
+            public float SortX = 10.5f, SortZ = -0.25f, SortScale = 4f, SortRotY = 180f, SortWidth = 0.6f, SortFont = 1.35f; // the sort dropdown (the Options menu's), its width and font against the menu's
             // The strip's texts (copies of the row's name text, as the rows' texts are): size, box width in row
             // units; the empty lists' line's width.
             public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 38f;
@@ -1027,7 +1029,7 @@ namespace HsPuzzleBridge
         {
             var l = Layout.Current;
             if (_rowsParent != null) _rowsParent.localPosition = _rowsHome + _down * -l.Top;
-            try { ApplyShadow(l.PageShadow); PlaceStrip(l); PlaceSwitch(l); ColourStrip(); SetWheel(l); }
+            try { ApplyShadow(l.PageShadow); PlaceStrip(l); PlaceViewControls(l); ColourStrip(); SetWheel(l); }
             catch (Exception e) { Plugin.Log.LogWarning("Replays page shadow: " + e.Message); }
             foreach (var p in AllParts)
             {
@@ -1117,7 +1119,7 @@ namespace HsPuzzleBridge
             {
                 UpdateExtent(p, l);
                 // The strip's texts take their size from a row's text (RowTextUnit): placed again now one exists.
-                if (p.Set.Shown) { PlaceStrip(l); PlaceSwitch(l); ColourStrip(); }
+                if (p.Set.Shown) { PlaceStrip(l); PlaceViewControls(l); ColourStrip(); }
             }
         }
 

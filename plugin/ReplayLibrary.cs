@@ -66,6 +66,8 @@ namespace HsPuzzleBridge
         public static View Current { get; private set; } = Recent;
         /// <summary>The view the switch goes to: the next one round the list.</summary>
         public static View Next => Views[(Array.IndexOf(Views, Current) + 1) % Views.Length];
+        /// <summary>The view before the shown one, round the list.</summary>
+        public static View Prev => Views[(Array.IndexOf(Views, Current) + Views.Length - 1) % Views.Length];
         public static List<Entry> Entries => Current.Entries;
         public static string WatchingId => _watchId;
         /// <summary>The game of the replay last joined (kept through the replay; the bug report names it).</summary>

@@ -9,9 +9,9 @@ namespace HsPuzzleBridge
     /// Saved and imported games: a folder the player picks outside the Hearthstone folder (Library.SavedDir), so game
     /// updates, repairs and reinstalls never touch it; its Saved and Imported folders are the page's second and third
     /// views (<see cref="ReplayLibrary.SplitSavedDir"/>).
-    /// - The switch: a button at the strip's left (the lobby's stats button, as Watch is) moves the page round its
-    ///   views: recent, saved, and imported (other players' games, and those converted from Power.log); it names the
-    ///   next one, the title the shown one.
+    /// - The views go round as a carousel: an arrow on each side of the page's title (the Options menu's dropdown
+    ///   arrow, turned to point sideways) shows the one before or after: recent, saved, and imported (other players'
+    ///   games, and those converted from Power.log); the title names the shown one.
     /// - The star: each portrait's own favourite badge (FavoriteIconParent, the BG skin collection's heart) with
     ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on every row: full for a
     ///   saved game, greyed otherwise; clicking it saves or unsaves.
@@ -23,27 +23,24 @@ namespace HsPuzzleBridge
     /// </summary>
     internal static partial class ReplaysUi
     {
-        private static Transform _switch;
-        private static UIBButton _switchButton;
+        private static Transform _arrowPrev, _arrowNext;
+        private static float _arrowUnit; // the arrow's world width at scale 1
         private static RowText _emptyText, _importedEmptyText;
 
         private static string CurrentTitle => ReplayLibrary.Current.Title;
 
-        private static void CreateSwitch()
+        /// <summary>The views' arrows beside the title, and the empty lists' lines.</summary>
+        private static void CreateViewControls()
         {
-            if (_strip == null || _statsButton == null || _switch != null) return;
-            var button = WidgetInstance.Create(AssetOf(_statsButton));
-            button.name = "ViewSwitch";
-            button.transform.SetParent(_strip, false);
-            button.gameObject.layer = _strip.gameObject.layer;
-            _switch = button.transform;
-            button.RegisterReadyListener(_ =>
+            if (_strip == null || _arrowPrev != null) return;
+            var source = OptionsDropdown();
+            var arrow = source != null ? source.m_button : null;
+            if (arrow != null && _title != null)
             {
-                StripReleasedActions(button.gameObject);
-                _switchButton = button.GetComponentInChildren<UIBButton>(true);
-                _switchButton.AddEventListener(UIEventType.RELEASE, e => ReplayLibrary.Show(ReplayLibrary.Next));
-                ShowView();
-            });
+                _arrowPrev = ViewArrow(arrow, "ViewPrev", () => ReplayLibrary.Show(ReplayLibrary.Prev));
+                _arrowNext = ViewArrow(arrow, "ViewNext", () => ReplayLibrary.Show(ReplayLibrary.Next));
+            }
+            else Plugin.Log.LogWarning("Replays: no dropdown arrow in the Options menu, or no title; the views have no arrows");
             if (_stripTextSource != null)
             {
                 // The empty saved list's line: another copy of the row's name text, where the slider is.
@@ -53,29 +50,61 @@ namespace HsPuzzleBridge
                                              "No imported replays yet. Import shared replays or a Power.log, or paste them here with Ctrl+V.", _strip);
                 ShowStripText(_importedEmptyText, false);
             }
-            PlaceSwitch(Layout.Current);
+            PlaceViewControls(Layout.Current);
         }
 
-        private static void PlaceSwitch(Layout l)
+        /// <summary>A copy of the dropdown's arrow button under the title's frame, clicked through its UIBButton.</summary>
+        private static Transform ViewArrow(UIBButton source, string name, Action onRelease)
         {
-            if (_switch != null && _statsButton != null)
+            var go = UnityEngine.Object.Instantiate(source.gameObject, _title.transform.parent, false);
+            go.name = name;
+            go.SetActive(true);
+            LayerUtils.SetLayer(go, _title.gameObject.layer);
+            var b = go.GetComponent<UIBButton>() ?? go.GetComponentInChildren<UIBButton>(true);
+            b?.AddEventListener(UIEventType.RELEASE, e => onRelease());
+            go.transform.localScale = Vector3.one;
+            go.transform.rotation = _title.transform.rotation;
+            if (_arrowUnit <= 0f)
             {
-                _switch.localPosition = new Vector3(l.SwitchX, 1f, l.SwitchZ);
-                _switch.rotation = _statsButton.transform.rotation;
-                float worldScale = _statsButton.transform.lossyScale.x * l.SwitchScale;
-                _switch.localScale = Vector3.one * (worldScale / Mathf.Abs(_strip.lossyScale.x));
+                var size = RendererBounds(go).size;
+                _arrowUnit = Mathf.Max(size.x, size.z);
+            }
+            return go.transform;
+        }
+
+        /// <summary>The arrows TitleArrowX of the title's frame units either side of the title, TitleArrowSize world
+        /// units wide, the dropdown's downward arrow turned TitleArrowRot degrees in the page's plane each way.</summary>
+        private static void PlaceViewControls(Layout l)
+        {
+            if (_arrowPrev != null && _arrowNext != null && _title != null && _arrowUnit > 0f)
+            {
+                var t = _title.transform;
+                foreach (var (arrow, side) in new[] { (_arrowPrev, -1f), (_arrowNext, 1f) })
+                {
+                    arrow.localPosition = t.localPosition + new Vector3(side * l.TitleArrowX, 0.1f, l.TitleArrowZ);
+                    arrow.rotation = Quaternion.AngleAxis(-side * l.TitleArrowRot, Vector3.up) * t.rotation;
+                    arrow.localScale = Vector3.one * (l.TitleArrowSize / _arrowUnit); // _arrowUnit: its width at local scale 1
+                }
+                // The frame may be turned: the one drawn further left is "before".
+                if (_arrowPrev.position.x > _arrowNext.position.x)
+                {
+                    var p = _arrowPrev.localPosition;
+                    _arrowPrev.localPosition = _arrowNext.localPosition;
+                    _arrowNext.localPosition = p;
+                    var r = _arrowPrev.rotation;
+                    _arrowPrev.rotation = _arrowNext.rotation;
+                    _arrowNext.rotation = r;
+                }
             }
             foreach (var empty in new[] { _emptyText, _importedEmptyText })
                 if (empty != null)
                     PlaceStripText(empty, l.SizeX, l.SizeZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center);
         }
 
-        /// <summary>The switch's text (the next view), the view's size, or the empty lines (saved or imported, none
-        /// yet).</summary>
+        /// <summary>The view's size, or the empty lines (saved or imported, none yet), and its buttons.</summary>
         private static void ShowView()
         {
             var view = ReplayLibrary.Current;
-            _switchButton?.SetText(ReplayLibrary.Next.Label);
             string size = ViewSize(view);
             if (_sizeText != null && size != null) _sizeText.Text.Text = size;
             ShowStripText(_sizeText, size != null);
@@ -84,7 +113,7 @@ namespace HsPuzzleBridge
             if (_importButton != null) _importButton.gameObject.SetActive(view == ReplayLibrary.Imported);
             ShowSortButton();
             PlaceStrip(Layout.Current); // the shown texts' plates are sized from the drawn text
-            PlaceSwitch(Layout.Current);
+            PlaceViewControls(Layout.Current);
         }
 
         private static ReplayLibrary.View _shownView;
