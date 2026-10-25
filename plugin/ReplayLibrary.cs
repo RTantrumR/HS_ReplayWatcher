@@ -228,10 +228,14 @@ namespace HsPuzzleBridge
             }
         }
 
+        /// <summary>A view's folder (null: none yet).</summary>
+        public static string FolderOf(View view) =>
+            view == Saved ? (HasSavedDir ? SavedDir : null) : view == Imported ? ImportedDir : Plugin.Recordings;
+
         /// <summary>The rows file of a view's folder (null: none).</summary>
         public static string RowsPath(View view)
         {
-            string folder = view == Saved ? (HasSavedDir ? SavedDir : null) : view == Imported ? ImportedDir : Plugin.Recordings;
+            string folder = FolderOf(view);
             return folder != null ? Path.Combine(folder, RowsFile) : null;
         }
 

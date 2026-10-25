@@ -21,7 +21,7 @@ namespace HsPuzzleBridge
         internal static ConfigEntry<int> ControlPort, KeepGames;
         internal static ConfigEntry<KeyCode> PanelToggleKey;
         internal static ConfigEntry<float> EditorX, EditorY, BarX, BarY, ActionBoost, ActionBoostSeconds;
-        internal static ConfigEntry<bool> BarCompact, FrameProbe;
+        internal static ConfigEntry<bool> BarCompact, FrameProbe, NoAskRemove, NoAskDelete;
         internal static ConfigEntry<KeyCode> UiDumpKey, EditorKey;
         internal static ConfigEntry<string> PythonExe, ServerDir, RowLayout, SavedDir, IssuesUrl;
 
@@ -53,6 +53,10 @@ namespace HsPuzzleBridge
                 "Folder for the saved and imported games (its Saved and Imported folders), outside the Hearthstone folder " +
                 "so updates and reinstalls never touch it. Empty: asked for (a folder window) the first time a game is " +
                 "saved or imported.");
+            NoAskRemove = Config.Bind("Library", "NoAskRemove", false,
+                "Remove saved or imported replays without asking (the Replays page's settings).");
+            NoAskDelete = Config.Bind("Library", "NoAskDelete", false,
+                "With NoAskRemove: also delete without asking, when unstarring a saved replay deletes it for good.");
             RowLayout = Config.Bind("Library", "RowLayout", "",
                 "Replays page row layout overrides, e.g. \"Pitch=15;HeroScale=3.4\" (see ReplaysUi.Layout; Alt+F12 reloads).");
             EditorKey = Config.Bind("Library", "EditorKey", KeyCode.F11,

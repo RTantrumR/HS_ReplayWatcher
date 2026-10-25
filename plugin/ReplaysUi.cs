@@ -196,6 +196,7 @@ namespace HsPuzzleBridge
             _pageShown = false;
             _hiddenAt = Time.unscaledTime;
             _wheelOn = false;
+            ReplaysOptions.Hide();
             ReplayLibrary.Close();
             if (_page != null) _page.TriggerEvent("HIDE");
         }
@@ -270,14 +271,16 @@ namespace HsPuzzleBridge
             public float WatchX = 70.25f, WatchZ = -3.2f, WatchScale = 0.8f;
             // The bug button (BugButton.cs), left of the Back button, in Back button heights: the gap to it, up, size.
             public float BugX = 0.4f, BugZ = 0f, BugScale = 0.9f;
-            // The settings strip above the rows (ReplaysSettings.cs): the rows start ListTop lower; the slider in the
-            // first row's units (the Options menu's slider is built turned half round: 180 about y sets it upright).
+            // The strip above the rows (ReplaysSettings.cs): the rows start ListTop lower; its parts in the first row's
+            // units: the view switch at its left, the view's size (or the empty list's line) centred at SizeX, the
+            // Settings button at its right.
             public float ListTop = 3.55f;
-            public float SwitchX = 9f, SwitchZ = -0.25f, SwitchScale = 0.8f; // the recent/saved switch, at the strip's left
-            public float SliderX = 45f, SliderZ = -0.25f, SliderScale = 4f, SliderRotX = 0f, SliderRotY = 180f, SliderRotZ = 0f;
+            public float SwitchX = 9f, SwitchZ = -0.25f, SwitchScale = 0.8f;
+            public float SizeX = 40f, SizeZ = -0.25f;
+            public float SettingsX = 70.25f, SettingsZ = -0.25f, SettingsScale = 0.8f;
             // The strip's texts (copies of the row's name text, as the rows' texts are): size, box width in row
-            // units, gap to the slider's track; the empty saved list's line is centred on the slider.
-            public float StripTextScale = 0.8f, StripTextWidth = 24f, StripTextGap = 1.5f, StripEmptyWidth = 70f;
+            // units; the empty lists' line's width.
+            public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 70f;
             // The strip texts' plate (see PlateStyles; 0 none; the title's ribbon by default: the frame's band and
             // pill are too faint on the parchment), its height and the padding round the text; their colour
             // ("" = as the rows' length text).

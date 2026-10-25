@@ -11,15 +11,16 @@ namespace HsPuzzleBridge
     /// views (<see cref="ReplayLibrary.SplitSavedDir"/>).
     /// - The switch: a button at the strip's left (the lobby's stats button, as Watch is) moves the page round its
     ///   views: recent, saved, and imported (other players' games, and those converted from Power.log); it names the
-    ///   next one, the title the shown one; the "keep the last" slider shows only for recent ones.
+    ///   next one, the title the shown one.
     /// - The star: each portrait's own favourite badge (FavoriteIconParent, the BG skin collection's heart) with
     ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on every recent and
     ///   saved row: full for a saved game, greyed otherwise; clicking it saves or unsaves. Imported games have none
     ///   yet.
     /// - Saving copies the recording into the saved folder (the first time, the folder is asked for); the game stays
     ///   in the recent list until the limit takes it.
-    /// - Unsaving asks first (<see cref="ConfirmPopup"/>): still in the recent list, the saved copy is removed;
-    ///   otherwise it moves back to the recent list if that has room, else it is deleted.
+    /// - Unsaving asks first (<see cref="ConfirmPopup"/>; the settings can turn the asking off): still in the recent
+    ///   list, the saved copy is removed; otherwise it moves back to the recent list if that has room, else it is
+    ///   deleted.
     /// </summary>
     internal static partial class ReplaysUi
     {
@@ -66,35 +67,34 @@ namespace HsPuzzleBridge
             }
             foreach (var empty in new[] { _emptyText, _importedEmptyText })
                 if (empty != null)
-                    PlaceStripText(empty, l.SliderX, l.SliderZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center);
+                    PlaceStripText(empty, l.SizeX, l.SizeZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center);
         }
 
-        /// <summary>The switch's text (the next view), the slider (recent only) and the empty lines (saved or imported,
-        /// none yet).</summary>
+        /// <summary>The switch's text (the next view), the view's size, or the empty lines (saved or imported, none
+        /// yet).</summary>
         private static void ShowView()
         {
             var view = ReplayLibrary.Current;
-            bool recent = view == ReplayLibrary.Recent;
             _switchButton?.SetText(ReplayLibrary.Next.Label);
-            if (_keepSliderT != null) _keepSliderT.gameObject.SetActive(recent);
-            ShowStripText(_keepLabel, recent);
-            ShowStripText(_keepValue, recent);
-            ShowStripText(_emptyText, view == ReplayLibrary.Saved && ReplayLibrary.Entries.Count == 0);
-            ShowStripText(_importedEmptyText, view == ReplayLibrary.Imported && ReplayLibrary.Entries.Count == 0);
+            string size = ViewSize(view);
+            if (_sizeText != null && size != null) _sizeText.Text.Text = size;
+            ShowStripText(_sizeText, size != null);
+            ShowStripText(_emptyText, size == null && view == ReplayLibrary.Saved);
+            ShowStripText(_importedEmptyText, size == null && view == ReplayLibrary.Imported);
             PlaceStrip(Layout.Current); // the shown texts' plates are sized from the drawn text
             PlaceSwitch(Layout.Current);
         }
 
         private static ReplayLibrary.View _shownView;
-        private static int _shownCount = -1;
+        private static int _shownVersion = -1;
 
         /// <summary>Per frame: the view's pieces when the view or its rows change, and every row's heart.</summary>
         private static void UpdateSaved()
         {
-            if (_shownView != ReplayLibrary.Current || _shownCount != ReplayLibrary.Entries.Count)
+            if (_shownView != ReplayLibrary.Current || _shownVersion != ReplayLibrary.Current.Version)
             {
                 _shownView = ReplayLibrary.Current;
-                _shownCount = ReplayLibrary.Entries.Count;
+                _shownVersion = ReplayLibrary.Current.Version;
                 ShowView();
             }
             foreach (var p in AllParts) UpdateHeart(p);
@@ -288,20 +288,28 @@ namespace HsPuzzleBridge
             string recentDir = Plugin.Recordings;
             if (ReplayLibrary.RecentIds.Contains(id) && ReplayLibrary.RecordingIn(recentDir, id) != null)
             {
-                ConfirmPopup.Ask("Remove from saved?", "The saved copy will be removed. The game stays in your recent replays.",
-                                 "Remove", () => AfterUnsave(id, () => File.Delete(saved)));
+                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?",
+                          "The saved copy will be removed. The game stays in your recent replays.",
+                          "Remove", () => AfterUnsave(id, () => File.Delete(saved)));
             }
             else if (ReplayLibrary.RecentIds.Count >= Plugin.KeepGames.Value)
             {
-                ConfirmPopup.Ask("Delete this replay?",
-                                 $"Your recent replays are full ({Plugin.KeepGames.Value} games), so this replay will be deleted.",
-                                 "Delete", () => AfterUnsave(id, () => File.Delete(saved)));
+                AskUnless(Plugin.NoAskRemove.Value && Plugin.NoAskDelete.Value, "Delete this replay?",
+                          $"Your recent replays are full ({Plugin.KeepGames.Value} games), so this replay will be deleted.",
+                          "Delete", () => AfterUnsave(id, () => File.Delete(saved)));
             }
             else
             {
-                ConfirmPopup.Ask("Remove from saved?", "The replay will be moved back to your recent replays.",
-                                 "Remove", () => AfterUnsave(id, () => File.Move(saved, Path.Combine(recentDir, Path.GetFileName(saved)))));
+                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?", "The replay will be moved back to your recent replays.",
+                          "Remove", () => AfterUnsave(id, () => File.Move(saved, Path.Combine(recentDir, Path.GetFileName(saved)))));
             }
+        }
+
+        /// <summary>Ask first (<see cref="ConfirmPopup"/>), unless the settings say not to: then just do it.</summary>
+        private static void AskUnless(bool skip, string header, string text, string action, Action confirmed)
+        {
+            if (skip) confirmed();
+            else ConfirmPopup.Ask(header, text, action, confirmed);
         }
 
         private static void AfterUnsave(string id, Action change)
