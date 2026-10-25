@@ -65,6 +65,9 @@ namespace HsPuzzleBridge
                 Unsquash(text.transform, l.SortWidth);
             }
             foreach (string name in SortNames) _sort.addItem(name);
+            // The box's text centred (the menu's items stay as they are), the view's order in it from the start.
+            if (_sort.m_selectedItem?.m_text != null) _sort.m_selectedItem.m_text.Alignment = UberText.AlignmentOptions.Center;
+            _sort.setSelection(SortNames[SortOf(ReplayLibrary.Current)]);
             _sort.setItemChosenCallback((chosen, previous) => SortChosen(chosen as string));
             PlaceSortDropdown(Layout.Current);
         }
