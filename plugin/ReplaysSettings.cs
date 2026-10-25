@@ -11,12 +11,13 @@ namespace HsPuzzleBridge
     /// <summary>
     /// The strip above the replay rows: the view switch at its left (ReplaysSaved.cs), the shown view's size in the
     /// middle ("N games, X MB", from its folder's files; counted again only when the view's rows change), or the
-    /// empty list's line, and the Settings button at its right, which opens <see cref="ReplaysOptions"/> (how many
-    /// recent games are kept, the remove prompts). The texts are copies of the row's name text, as the rows' are.
+    /// empty list's line, the Import button in the imported view (ReplaysImport.cs), and the Settings button at its
+    /// right, which opens <see cref="ReplaysOptions"/> (how many recent games are kept, the remove prompts). The
+    /// texts are copies of the row's name text, as the rows' are.
     /// </summary>
     internal static partial class ReplaysUi
     {
-        private static Transform _strip, _settings;
+        private static Transform _strip, _settings, _importButton;
         private static RowText _sizeText;
         private static readonly Dictionary<ReplayLibrary.View, KeyValuePair<int, string>> _sizes =
             new Dictionary<ReplayLibrary.View, KeyValuePair<int, string>>(); // view -> (its Version, the text)
@@ -39,26 +40,29 @@ namespace HsPuzzleBridge
             else Plugin.Log.LogWarning("Replays strip: the stock row has no HeroName text; the strip has no texts");
             PlaceStrip(Layout.Current);
             CreateSwitch();
-            CreateSettingsButton();
+            _settings = StripButton("SettingsButton", "Settings", ReplaysOptions.Show);
+            _importButton = StripButton("ImportButton", "Import", PickImport);
+            ShowView();
             ColourStrip();
         }
 
-        private static void CreateSettingsButton()
+        /// <summary>A copy of the lobby's stats button on the strip, its own release actions taken off.</summary>
+        private static Transform StripButton(string name, string text, Action onRelease)
         {
-            if (_strip == null || _statsButton == null || _settings != null) return;
+            if (_strip == null || _statsButton == null) return null;
             var button = WidgetInstance.Create(AssetOf(_statsButton));
-            button.name = "SettingsButton";
+            button.name = name;
             button.transform.SetParent(_strip, false);
             button.gameObject.layer = _strip.gameObject.layer;
-            _settings = button.transform;
             button.RegisterReadyListener(_ =>
             {
                 StripReleasedActions(button.gameObject);
                 var b = button.GetComponentInChildren<UIBButton>(true);
-                b.SetText("Settings");
-                b.AddEventListener(UIEventType.RELEASE, e => ReplaysOptions.Show());
+                b.SetText(text);
+                b.AddEventListener(UIEventType.RELEASE, e => onRelease());
             });
             PlaceStrip(Layout.Current);
+            return button.transform;
         }
 
         private static void PlaceStrip(Layout l)
@@ -66,13 +70,17 @@ namespace HsPuzzleBridge
             if (_strip == null) return;
             _strip.localPosition = _slot1.localPosition;
             PlaceStripText(_sizeText, l.SizeX, l.SizeZ, l.StripTextWidth, l, UberText.AlignmentOptions.Center);
-            if (_settings != null && _statsButton != null)
-            {
-                _settings.localPosition = new Vector3(l.SettingsX, 1f, l.SettingsZ);
-                _settings.rotation = _statsButton.transform.rotation;
-                float worldScale = _statsButton.transform.lossyScale.x * l.SettingsScale;
-                _settings.localScale = Vector3.one * (worldScale / Mathf.Abs(_strip.lossyScale.x));
-            }
+            PlaceStripButton(_settings, l.SettingsX, l.SettingsZ, l.SettingsScale);
+            PlaceStripButton(_importButton, l.ImportX, l.ImportZ, l.SettingsScale);
+        }
+
+        private static void PlaceStripButton(Transform button, float x, float z, float scale)
+        {
+            if (button == null || _statsButton == null) return;
+            button.localPosition = new Vector3(x, 1f, z);
+            button.rotation = _statsButton.transform.rotation;
+            float worldScale = _statsButton.transform.lossyScale.x * scale;
+            button.localScale = Vector3.one * (worldScale / Mathf.Abs(_strip.lossyScale.x));
         }
 
         /// <summary>The shown view's size, or null while its list is empty: its games' files added up, kept per view

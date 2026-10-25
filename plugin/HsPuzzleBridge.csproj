@@ -60,6 +60,10 @@
       <HintPath>$(HearthstoneManagedPath)UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule">
+      <HintPath>$(HearthstoneManagedPath)UnityEngine.JSONSerializeModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Blizzard.T5.Game">
       <HintPath>$(HearthstoneManagedPath)Blizzard.T5.Game.dll</HintPath>
       <Private>false</Private>

@@ -122,6 +122,7 @@ namespace HsPuzzleBridge
                 ReconnectPopup.Update();
                 FolderPicker.Update();
                 ReplayShare.Update();
+                ReplaysUi.UpdateImport();
                 SpectatorJoin.Update();
                 CombatDoneNote.Update();
                 UiDump.Update();
@@ -143,6 +144,7 @@ namespace HsPuzzleBridge
             Probe("reconnect", ReconnectPopup.Update);
             Probe("picker", FolderPicker.Update);
             Probe("share", ReplayShare.Update);
+            Probe("import", ReplaysUi.UpdateImport);
             Probe("spectator", SpectatorJoin.Update);
             Probe("combatnote", CombatDoneNote.Update);
             Probe("dump", UiDump.Update);

@@ -220,6 +220,10 @@ namespace HsPuzzleBridge
             }
             ShowSet(Current);
             if (_pageShown) PlaceBugButton(Layout.Current);
+            // Ctrl+V on the page imports copied replay files (not while a popup or a window of ours is up).
+            if (_pageShown && Input.GetKeyDown(KeyCode.V) && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+                && !ReplaysOptions.Shown && !FolderPicker.Open && DialogManager.Get()?.ShowingDialog() != true)
+                PasteImport();
             HidePortraitNames();
             OpenTrinkets();
             UpdateSaved();
@@ -280,9 +284,10 @@ namespace HsPuzzleBridge
             public float SwitchX = 9f, SwitchZ = -0.25f, SwitchScale = 0.8f;
             public float SizeX = 40f, SizeZ = -0.25f;
             public float SettingsX = 70.25f, SettingsZ = -0.25f, SettingsScale = 0.8f;
+            public float ImportX = 59.5f, ImportZ = -0.25f; // the imported view's Import button (Settings' size)
             // The strip's texts (copies of the row's name text, as the rows' texts are): size, box width in row
             // units; the empty lists' line's width.
-            public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 70f;
+            public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 38f;
             // The strip texts' plate (see PlateStyles; 0 none; the title's ribbon by default: the frame's band and
             // pill are too faint on the parchment), its height and the padding round the text; their colour
             // ("" = as the rows' length text).

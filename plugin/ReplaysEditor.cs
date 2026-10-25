@@ -96,6 +96,7 @@ namespace HsPuzzleBridge
                 new Param("SizeX", "Size X", -10f, 80f, 0.25f), new Param("SizeZ", "Size Y", -30f, 10f, 0.1f),
                 new Param("SettingsX", "Settings X", -10f, 80f, 0.25f), new Param("SettingsZ", "Settings Y", -30f, 10f, 0.1f),
                 new Param("SettingsScale", "Settings size", 0.3f, 3f, 0.05f),
+                new Param("ImportX", "Import X", -10f, 80f, 0.25f), new Param("ImportZ", "Import Y", -30f, 10f, 0.1f),
                 new Param("StripTextScale", "Text size", 0.2f, 2f, 0.02f), new Param("StripTextWidth", "Text width", 5f, 60f, 0.5f),
                 new Param("StripEmptyWidth", "Empty line width", 10f, 80f, 0.5f),
                 new Param("StripPlate", "Plate", 0f, ReplaysUi.PlateStyles.Length - 1, 1f),

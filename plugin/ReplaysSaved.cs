@@ -49,7 +49,8 @@ namespace HsPuzzleBridge
                 // The empty saved list's line: another copy of the row's name text, where the slider is.
                 _emptyText = NewText(_stripTextSource, "SavedEmpty", "No saved replays yet. The star by a game's portrait saves it here.", _strip);
                 ShowStripText(_emptyText, false);
-                _importedEmptyText = NewText(_stripTextSource, "ImportedEmpty", "No imported replays yet.", _strip);
+                _importedEmptyText = NewText(_stripTextSource, "ImportedEmpty",
+                                             "No imported replays yet. Import shared replays or a Power.log, or paste them here with Ctrl+V.", _strip);
                 ShowStripText(_importedEmptyText, false);
             }
             PlaceSwitch(Layout.Current);
@@ -80,6 +81,7 @@ namespace HsPuzzleBridge
             ShowStripText(_sizeText, size != null);
             ShowStripText(_emptyText, size == null && view == ReplayLibrary.Saved);
             ShowStripText(_importedEmptyText, size == null && view == ReplayLibrary.Imported);
+            if (_importButton != null) _importButton.gameObject.SetActive(view == ReplayLibrary.Imported);
             PlaceStrip(Layout.Current); // the shown texts' plates are sized from the drawn text
             PlaceSwitch(Layout.Current);
         }
@@ -242,8 +244,8 @@ namespace HsPuzzleBridge
         /// <summary>Ask for the folder of saved and imported games; then (if the folder is taken) go on.</summary>
         private static void PickSavedDir(Action then) =>
             FolderPicker.Pick("Choose a folder for your saved and imported Hearthstone replays (outside the Hearthstone folder).",
-                              "A folder window has opened (it may be behind the game). Please choose a folder for your replays: " +
-                              "the games you save and the ones you import are kept there, about 1 MB each.",
+                              "A folder window has opened (it may be behind the game). Choose a folder for your replays: " +
+                              "saved and imported games are kept there, about 1 MB each.",
                               path => { if (UseSavedDir(path)) then(); });
 
         /// <summary>A picked folder becomes the saved folder unless it is inside the Hearthstone folder (updates and
