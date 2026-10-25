@@ -216,7 +216,7 @@ namespace HsPuzzleBridge
             if (string.IsNullOrEmpty(id)) return null;
             return ReplayLibrary.RecordingIn(Plugin.Recordings, id) ??
                    (ReplayLibrary.HasSavedDir ? ReplayLibrary.RecordingIn(ReplayLibrary.SavedDir, id) : null) ??
-                   ReplayLibrary.RecordingIn(Plugin.Logs, id);
+                   ReplayLibrary.RecordingIn(ReplayLibrary.ImportedDir, id);
         }
 
         /// <summary>The client's build, from the install's .product.db (e.g. 37.0.0.255130).</summary>

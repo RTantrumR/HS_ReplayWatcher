@@ -23,7 +23,7 @@ namespace HsPuzzleBridge
         internal static ConfigEntry<float> EditorX, EditorY, BarX, BarY, ActionBoost, ActionBoostSeconds;
         internal static ConfigEntry<bool> BarCompact, FrameProbe;
         internal static ConfigEntry<KeyCode> UiDumpKey, EditorKey;
-        internal static ConfigEntry<string> PythonExe, ServerDir, RowLayout, SavedDir, LogsDir, IssuesUrl;
+        internal static ConfigEntry<string> PythonExe, ServerDir, RowLayout, SavedDir, IssuesUrl;
 
         private void Awake()
         {
@@ -50,11 +50,9 @@ namespace HsPuzzleBridge
                 "How many of the newest games keep their recordings; older ones are deleted at the next catalog scan.",
                 new AcceptableValueRange<int>(5, 50)));
             SavedDir = Config.Bind("Library", "SavedDir", "",
-                "Folder for the saved games (the Replays page's hearts), outside the Hearthstone folder so updates and " +
-                "reinstalls never touch it. Empty: asked for (a folder window) the first time a game is saved.");
-            LogsDir = Config.Bind("Library", "LogsDir", "",
-                "Folder for games converted from Power.log (python -m hsserver.powerlog), the Replays page's Logs view. " +
-                "Empty: %LOCALAPPDATA%\\HS Replay Watcher\\Logs.");
+                "Folder for the saved and imported games (its Saved and Imported folders), outside the Hearthstone folder " +
+                "so updates and reinstalls never touch it. Empty: asked for (a folder window) the first time a game is " +
+                "saved or imported.");
             RowLayout = Config.Bind("Library", "RowLayout", "",
                 "Replays page row layout overrides, e.g. \"Pitch=15;HeroScale=3.4\" (see ReplaysUi.Layout; Alt+F12 reloads).");
             EditorKey = Config.Bind("Library", "EditorKey", KeyCode.F11,
@@ -90,8 +88,9 @@ namespace HsPuzzleBridge
         /// <summary>The recordings folder: the config's, else one under %LOCALAPPDATA% (an install keeps none in HS).</summary>
         internal static string Recordings => RecordingsDir.Value.Length > 0 ? RecordingsDir.Value : Path.Combine(DataDir, "Recordings");
 
-        /// <summary>The folder of games converted from Power.log: the config's, else one beside the recordings.</summary>
-        internal static string Logs => LogsDir.Value.Length > 0 ? LogsDir.Value : Path.Combine(DataDir, "Logs");
+        /// <summary>The converter's default output (python -m hsserver.powerlog): the imported games until a saved folder
+        /// is chosen, whose Imported folder then takes them (<see cref="ReplayLibrary.SplitSavedDir"/>).</summary>
+        internal static string Logs => Path.Combine(DataDir, "Logs");
 
         /// <summary>The bug reports' folders (<see cref="BugReport"/>).</summary>
         internal static string Reports => Path.Combine(DataDir, "Reports");

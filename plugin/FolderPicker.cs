@@ -20,8 +20,9 @@ namespace HsPuzzleBridge
 
         public static bool Open => _process != null;
 
-        /// <summary>Ask for a folder; done gets its path, or null if the player cancelled.</summary>
-        public static void Pick(string description, Action<string> done)
+        /// <summary>Ask for a folder (description: the folder window's line; message: the game's popup meanwhile); done
+        /// gets its path, or null if the player cancelled.</summary>
+        public static void Pick(string description, string message, Action<string> done)
         {
             if (Open) return;
             _done = done;
@@ -74,8 +75,7 @@ namespace HsPuzzleBridge
             DialogManager.Get().ShowPopup(new AlertPopup.PopupInfo
             {
                 m_headerText = "Choose a folder",
-                m_text = "A folder window has opened (it may be behind the game). Please select the folder for your " +
-                         "saved replays.",
+                m_text = message,
                 m_responseDisplay = AlertPopup.ResponseDisplay.CANCEL,
                 m_responseCallback = (_, __) => { _modal = null; Kill(); },
             }, (dialog, _) =>

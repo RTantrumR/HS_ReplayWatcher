@@ -171,7 +171,7 @@ namespace HsPuzzleBridge
         private static void ColourStrip()
         {
             var l = Layout.Current;
-            foreach (var t in new[] { _keepLabel, _keepValue, _emptyText, _logsEmptyText })
+            foreach (var t in new[] { _keepLabel, _keepValue, _emptyText, _importedEmptyText })
                 if (t?.Text != null) t.Text.TextColor = ParseColor(l.StripColor, ParseColor(l.LengthColor, t.Default));
         }
 

@@ -6,15 +6,16 @@ using UnityEngine;
 namespace HsPuzzleBridge
 {
     /// <summary>
-    /// Saved games: a folder the player picks outside the Hearthstone folder (Library.SavedDir), so game updates,
-    /// repairs and reinstalls never touch it, listed by the page's second view.
+    /// Saved and imported games: a folder the player picks outside the Hearthstone folder (Library.SavedDir), so game
+    /// updates, repairs and reinstalls never touch it; its Saved and Imported folders are the page's second and third
+    /// views (<see cref="ReplayLibrary.SplitSavedDir"/>).
     /// - The switch: a button at the strip's left (the lobby's stats button, as Watch is) moves the page round its
-    ///   views: recent, saved, and the games converted from Power.log (Library.LogsDir); it names the next one, the
-    ///   title the shown one; the "keep the last" slider shows only for recent ones.
+    ///   views: recent, saved, and imported (other players' games, and those converted from Power.log); it names the
+    ///   next one, the title the shown one; the "keep the last" slider shows only for recent ones.
     /// - The star: each portrait's own favourite badge (FavoriteIconParent, the BG skin collection's heart) with
     ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on every recent and
-    ///   saved row: full for a saved game, greyed otherwise; clicking it saves or unsaves. Log games have none
-    ///   (saving one isn't offered).
+    ///   saved row: full for a saved game, greyed otherwise; clicking it saves or unsaves. Imported games have none
+    ///   yet.
     /// - Saving copies the recording into the saved folder (the first time, the folder is asked for); the game stays
     ///   in the recent list until the limit takes it.
     /// - Unsaving asks first (<see cref="ConfirmPopup"/>): still in the recent list, the saved copy is removed;
@@ -24,7 +25,7 @@ namespace HsPuzzleBridge
     {
         private static Transform _switch;
         private static UIBButton _switchButton;
-        private static RowText _emptyText, _logsEmptyText;
+        private static RowText _emptyText, _importedEmptyText;
 
         private static string CurrentTitle => ReplayLibrary.Current.Title;
 
@@ -48,8 +49,8 @@ namespace HsPuzzleBridge
                 // The empty saved list's line: another copy of the row's name text, where the slider is.
                 _emptyText = NewText(_stripTextSource, "SavedEmpty", "No saved replays yet. The star by a game's portrait saves it here.", _strip);
                 ShowStripText(_emptyText, false);
-                _logsEmptyText = NewText(_stripTextSource, "LogsEmpty", "No log replays yet. Convert a Power.log with hsserver.powerlog.", _strip);
-                ShowStripText(_logsEmptyText, false);
+                _importedEmptyText = NewText(_stripTextSource, "ImportedEmpty", "No imported replays yet.", _strip);
+                ShowStripText(_importedEmptyText, false);
             }
             PlaceSwitch(Layout.Current);
         }
@@ -63,13 +64,13 @@ namespace HsPuzzleBridge
                 float worldScale = _statsButton.transform.lossyScale.x * l.SwitchScale;
                 _switch.localScale = Vector3.one * (worldScale / Mathf.Abs(_strip.lossyScale.x));
             }
-            foreach (var empty in new[] { _emptyText, _logsEmptyText })
+            foreach (var empty in new[] { _emptyText, _importedEmptyText })
                 if (empty != null)
                     PlaceStripText(empty, l.SliderX, l.SliderZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center);
         }
 
-        /// <summary>The switch's text (the next view), the slider (recent only) and the empty lines (saved or logs, none
-        /// yet).</summary>
+        /// <summary>The switch's text (the next view), the slider (recent only) and the empty lines (saved or imported,
+        /// none yet).</summary>
         private static void ShowView()
         {
             var view = ReplayLibrary.Current;
@@ -79,7 +80,7 @@ namespace HsPuzzleBridge
             ShowStripText(_keepLabel, recent);
             ShowStripText(_keepValue, recent);
             ShowStripText(_emptyText, view == ReplayLibrary.Saved && ReplayLibrary.Entries.Count == 0);
-            ShowStripText(_logsEmptyText, view == ReplayLibrary.Logs && ReplayLibrary.Entries.Count == 0);
+            ShowStripText(_importedEmptyText, view == ReplayLibrary.Imported && ReplayLibrary.Entries.Count == 0);
             PlaceStrip(Layout.Current); // the shown texts' plates are sized from the drawn text
             PlaceSwitch(Layout.Current);
         }
@@ -156,9 +157,9 @@ namespace HsPuzzleBridge
         private static void UpdateHeart(RowParts p)
         {
             if (p.Root == null || p.Hero == null) return;
-            if (p.Set.View == ReplayLibrary.Logs)
+            if (p.Set.View == ReplayLibrary.Imported)
             {
-                // No star on a log game: the badge is kept off (and gets no click listener).
+                // No star on an imported game: the badge is kept off (and gets no click listener).
                 if (p.Heart == null) p.Heart = Find(p.Hero, "FavoriteIconParent");
                 if (p.Heart != null && p.Heart.gameObject.activeSelf) p.Heart.gameObject.SetActive(false);
                 return;
@@ -217,8 +218,7 @@ namespace HsPuzzleBridge
         {
             if (!ReplayLibrary.HasSavedDir)
             {
-                FolderPicker.Pick("Choose the folder for your saved Hearthstone replays (outside the Hearthstone folder).",
-                                  path => { if (UseSavedDir(path)) Save(id); });
+                PickSavedDir(() => Save(id));
                 return;
             }
             string src = ReplayLibrary.RecordingIn(Plugin.Recordings, id);
@@ -226,6 +226,7 @@ namespace HsPuzzleBridge
             string dst = Path.Combine(ReplayLibrary.SavedDir, Path.GetFileName(src));
             try
             {
+                Directory.CreateDirectory(ReplayLibrary.SavedDir);
                 if (!File.Exists(dst)) File.Copy(src, dst);
                 Plugin.Log.LogInfo($"Replays: saved {id} to {ReplayLibrary.SavedDir}");
             }
@@ -239,6 +240,13 @@ namespace HsPuzzleBridge
             ReplayLibrary.SetSavedRow(id, true);
             ReplayServerProcess.ScanCatalog(); // lists the copy in the saved folder's own catalog (from the cache)
         }
+
+        /// <summary>Ask for the folder of saved and imported games; then (if the folder is taken) go on.</summary>
+        private static void PickSavedDir(Action then) =>
+            FolderPicker.Pick("Choose a folder for your saved and imported Hearthstone replays (outside the Hearthstone folder).",
+                              "A folder window has opened (it may be behind the game). Please choose a folder for your replays: " +
+                              "the games you save and the ones you import are kept there, about 1 MB each.",
+                              path => { if (UseSavedDir(path)) then(); });
 
         /// <summary>A picked folder becomes the saved folder unless it is inside the Hearthstone folder (updates and
         /// repairs can wipe that) or is the recent games' folder.</summary>
@@ -260,11 +268,12 @@ namespace HsPuzzleBridge
             }
             if (key == Norm(Plugin.Logs))
             {
-                Alert("Choose another folder", "That is where the log replays are kept. Please choose another folder.");
+                Alert("Choose another folder", "That is where converted Power.log games wait to be imported. Please choose another folder.");
                 return false;
             }
             Plugin.SavedDir.Value = full;
-            Plugin.Log.LogInfo("Replays: saved games go to " + full);
+            Plugin.Log.LogInfo("Replays: saved and imported games go to " + full);
+            ReplayLibrary.SplitSavedDir();
             return true;
         }
 
