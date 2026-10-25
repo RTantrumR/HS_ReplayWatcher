@@ -82,6 +82,7 @@ namespace HsPuzzleBridge
             ShowStripText(_emptyText, size == null && view == ReplayLibrary.Saved);
             ShowStripText(_importedEmptyText, size == null && view == ReplayLibrary.Imported);
             if (_importButton != null) _importButton.gameObject.SetActive(view == ReplayLibrary.Imported);
+            ShowSortButton();
             PlaceStrip(Layout.Current); // the shown texts' plates are sized from the drawn text
             PlaceSwitch(Layout.Current);
         }

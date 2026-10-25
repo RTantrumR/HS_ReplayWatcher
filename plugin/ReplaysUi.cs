@@ -285,6 +285,7 @@ namespace HsPuzzleBridge
             public float SizeX = 40f, SizeZ = -0.25f;
             public float SettingsX = 70.25f, SettingsZ = -0.25f, SettingsScale = 0.8f;
             public float ImportX = 59.5f, ImportZ = -0.25f; // the imported view's Import button (Settings' size)
+            public float SortX = 22.75f, SortZ = -0.25f; // the saved and imported views' sort button (Settings' size)
             // The strip's texts (copies of the row's name text, as the rows' texts are): size, box width in row
             // units; the empty lists' line's width.
             public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 38f;
@@ -392,7 +393,7 @@ namespace HsPuzzleBridge
             public bool Hidden; // not yet revealed (RevealSettled)
             public int SetUpFrame;
             public float SetUpAt;
-            public int Index, Place, MinionCount;
+            public int Index, Entry, Place, MinionCount; // Index: its place on the page; Entry: its line in the rows file
             public string Id;
             public Transform Heart; // the portrait's favourite badge (ReplaysSaved.cs)
             public Renderer HeartIcon;
@@ -425,6 +426,7 @@ namespace HsPuzzleBridge
             public readonly List<GameObject> Rows = new List<GameObject>();
             public readonly List<RowParts> Parts = new List<RowParts>();
             public readonly List<int> Queue = new List<int>();
+            public int[] Slots = new int[0]; // each entry's place on the page (ReplaysSort.cs)
             public int Loading, Generation, BuiltVersion = -1;
             public float QueueWaitingSince;
             public UIBScrollableItem Extent;
@@ -505,11 +507,12 @@ namespace HsPuzzleBridge
             if (_rowAsset == null) { Plugin.Log.LogWarning("Replays rows: no GameHistory template"); return; }
             _down = _slot2 != null ? (_slot2.localPosition - _slot1.localPosition).normalized : Vector3.back;
             var entries = set.View.Entries;
+            set.Slots = SlotsOf(set.View);
+            for (int i = 0; i < entries.Count; i++) set.Rows.Add(null);
             for (int i = 0; i < entries.Count; i++)
             {
-                set.Rows.Add(null);
                 // The shown view's first rows at once; the parked view's all one by one, after the shown one's.
-                if (set.Shown && i < EagerRows) CreateRow(set, i);
+                if (set.Shown && set.Slots[i] < EagerRows) CreateRow(set, i);
                 else set.Queue.Add(i);
             }
             set.QueueWaitingSince = Time.realtimeSinceStartup;
@@ -523,7 +526,7 @@ namespace HsPuzzleBridge
             var row = WidgetInstance.Create(_rowAsset);
             row.name = "ReplayRow_" + entry.Id;
             row.transform.SetParent(_rowsParent, false);
-            row.transform.localPosition = RowPosition(set, i, Layout.Current);
+            row.transform.localPosition = RowPosition(set, set.Slots[i], Layout.Current);
             row.transform.localRotation = _slot1.localRotation;
             row.transform.localScale = _slot1.localScale;
             row.gameObject.layer = _slot1.gameObject.layer;
@@ -568,7 +571,7 @@ namespace HsPuzzleBridge
                 int best = int.MaxValue;
                 for (int k = 0; k < set.Queue.Count; k++)
                 {
-                    int d = set.Queue[k] - top;
+                    int d = set.Slots[set.Queue[k]] - top;
                     int cost = d >= -1 ? d : 100 - d; // the view and below it first, then above
                     if (cost < best) { best = cost; pick = k; }
                 }
@@ -604,6 +607,8 @@ namespace HsPuzzleBridge
                 set.Extent = go.AddComponent<UIBScrollableItem>();
                 set.Extent.m_boundsMode = UIBScrollableItem.BoundsMode.Fixed;
             }
+            else if (set.Extent.transform.parent != first.Root)
+                set.Extent.transform.SetParent(first.Root, false); // a new order put another row first
             set.Extent.m_active = set.Shown ? UIBScrollableItem.ActiveState.Active : UIBScrollableItem.ActiveState.Inactive;
             int last = Math.Max(0, set.Rows.Count - 1);
             var step = first.Root.InverseTransformVector(_rowsParent.TransformVector(_down * l.Pitch));
@@ -849,7 +854,7 @@ namespace HsPuzzleBridge
             var parts = new RowParts
             {
                 Set = set, Widget = row, Hidden = true, SetUpFrame = Time.frameCount, SetUpAt = Time.unscaledTime,
-                Index = index, Id = entry.Id, Place = entry.Place, MinionCount = entry.Board.Count, Row = row.transform,
+                Index = set.Slots[index], Entry = index, Id = entry.Id, Place = entry.Place, MinionCount = entry.Board.Count, Row = row.transform,
                 Root = root,
             };
             // Collapsed rather than deactivated: the row's own states switch some of them back on.
