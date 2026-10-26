@@ -11,9 +11,9 @@ namespace HsPuzzleBridge
     /// - Its parts are copies of the prefab's children (header, frame, contents, the double button), never the prefab
     ///   itself: its root's SoundOptionsMenu would tie the sliders and the checkbox to the game's sound options.
     ///   The frame's two dark insets are drawn in its texture, so the popup keeps the prefab's size.
-    /// - Top inset: how many recent games keep their recordings (the master volume slider, Library.KeepGames), the
-    ///   count and its storage beside it. Lowering it below the games there asks first, then scans, which deletes
-    ///   the oldest.
+    /// - Top inset, one row: its label, how many recent games keep their recordings (the master volume slider,
+    ///   Library.KeepGames), the count and its storage. Lowering it below the games there asks first, then scans,
+    ///   which deletes the oldest. Its texts are as bright as the checkboxes' labels.
     /// - Bottom inset: "Don't ask when removing" (Library.NoAskRemove), and, only while that is on, "Don't ask when
     ///   deleting" (Library.NoAskDelete; its tooltip says what it covers). Unticking the first unticks the second.
     /// - Buttons: Open folder (the saved and imported games' folder, in Explorer) and Done. A click outside closes it.
@@ -28,7 +28,7 @@ namespace HsPuzzleBridge
         private static GameObject _root;
         private static Vector3 _normalScale;
         private static ScrollbarControl _keep;
-        private static UberText _keepLabel;
+        private static UberText _keepLabel, _keepTitle;
         private static CheckBox _noAskRemove, _noAskDelete;
         private static UberText _deleteLabel;
         private static Color _labelColor;
@@ -98,8 +98,8 @@ namespace HsPuzzleBridge
             var title = Find(Find(t, "Header"), "UberText")?.GetComponent<UberText>();
             if (title != null) title.Text = "Replay Settings";
 
-            // Top inset: the keep slider (the master volume's) under its own label, the count and the storage in a
-            // copy of that label where the Reset Defaults button was.
+            // Top inset: the keep slider (the master volume's) between its own label and a copy of it with the count
+            // and the storage (laid out in one row by KeepRow).
             var restore = Find(t, "RestoreDefaultButton");
             var music = Find(t, "MusicVolume");
             var dialog = Find(t, "DialogVolume");
@@ -109,16 +109,14 @@ namespace HsPuzzleBridge
             var keepLabel = Find(t, "MasterVolumeLabel")?.GetComponent<UberText>();
             if (keepLabel != null)
             {
-                keepLabel.Text = "Recent replays to keep";
+                keepLabel.Text = "Amount of recent replays kept";
                 var value = UnityEngine.Object.Instantiate(keepLabel.gameObject, keepLabel.transform.parent, false);
                 value.name = "KeepValue";
                 // The copy brings the original's rendered text object along; UberText makes its own (as NewText).
                 foreach (Transform child in value.transform)
                     if (child.name.StartsWith("UberText_RenderObject")) UnityEngine.Object.Destroy(child.gameObject);
                 _keepLabel = value.GetComponent<UberText>();
-                _keepLabel.Width *= 2f;
-                _keepLabel.Alignment = UberText.AlignmentOptions.Center;
-                if (restore != null) value.transform.position = new Vector3(restore.position.x, value.transform.position.y, restore.position.z);
+                _keepTitle = keepLabel;
             }
             if (_keep != null)
             {
@@ -159,6 +157,9 @@ namespace HsPuzzleBridge
                 }
                 _deleteLabel = _noAskDelete.m_uberText;
                 _labelColor = _deleteLabel != null ? _deleteLabel.TextColor : Color.white;
+                // The slider's texts are dimmer in the prefab: as bright as these.
+                foreach (var text in new[] { _keepTitle, _keepLabel })
+                    if (text != null) text.TextColor = _labelColor;
                 _noAskRemove.AddEventListener(UIEventType.RELEASE, e =>
                 {
                     Plugin.NoAskRemove.Value = _noAskRemove.IsChecked();
@@ -178,6 +179,8 @@ namespace HsPuzzleBridge
                 _noAskDelete.AddEventListener(UIEventType.ROLLOVER, e => ShowTip(_noAskDelete.transform));
                 _noAskDelete.AddEventListener(UIEventType.ROLLOUT, e => HideTip());
             }
+
+            KeepRow(t);
 
             // The double button: Open folder and Done.
             Button(t, "Button_left", "ButtonText_left", "Open folder", OpenFolder);
@@ -207,12 +210,57 @@ namespace HsPuzzleBridge
             b.AddEventListener(UIEventType.RELEASE, e => onRelease());
         }
 
-        /// <summary>The second checkbox's label greyed while the first is off.</summary>
+        /// <summary>The second checkbox's label faded while the first is off (still readable).</summary>
         private static void ShowDeleteLocked()
         {
             if (_deleteLabel == null) return;
             var c = _labelColor;
-            _deleteLabel.TextColor = Plugin.NoAskRemove.Value ? c : new Color(c.r, c.g, c.b, c.a * 0.45f);
+            _deleteLabel.TextColor = Plugin.NoAskRemove.Value ? c : new Color(c.r, c.g, c.b, c.a * 0.65f);
+        }
+
+        // The keep row across the top inset: the slider's left end at KeepSliderAt of the inset's width, the texts
+        // KeepGap of it away from the slider (the label right-aligned before it, the value left-aligned after).
+        private const float KeepSliderAt = 0.37f, KeepGap = 0.025f;
+
+        /// <summary>Label, slider and value in one row. The inset's left edge is where the stock slider starts (it is
+        /// drawn in the frame's texture, as far in on both sides), so the inset runs from there to as far from the
+        /// frame's right edge; the slider's track is measured without its thumb.</summary>
+        private static void KeepRow(Transform root)
+        {
+            if (_keep == null || _keepTitle == null || _keepLabel == null) return;
+            var frame = Bounds(Find(root, "OptionFrame"));
+            var thumb = _keep.m_Thumb != null ? _keep.m_Thumb.transform : null;
+            var track = new Bounds();
+            bool any = false;
+            foreach (var r in _keep.GetComponentsInChildren<Renderer>(true))
+            {
+                if (thumb != null && r.transform.IsChildOf(thumb)) continue;
+                if (!any) { track = r.bounds; any = true; }
+                else track.Encapsulate(r.bounds);
+            }
+            if (!any || frame.size.x <= 0f)
+            {
+                Plugin.Log.LogWarning("Replay settings: can't measure the slider or the frame; the keep row stays as it was");
+                return;
+            }
+            float left = track.min.x, right = 2f * frame.center.x - left, inset = right - left;
+            float gap = KeepGap * inset, sliderLeft = left + KeepSliderAt * inset, z = track.center.z;
+            _keep.transform.position += new Vector3(sliderLeft - track.min.x, 0f, 0f);
+            float sliderRight = sliderLeft + track.size.x;
+            PlaceRowText(_keepTitle, left, sliderLeft - gap, z, UberText.AlignmentOptions.Right);
+            PlaceRowText(_keepLabel, sliderRight + gap, right, z, UberText.AlignmentOptions.Left);
+        }
+
+        /// <summary>A text's box from x0 to x1 (world), centred on z, the text aligned in it.</summary>
+        private static void PlaceRowText(UberText text, float x0, float x1, float z, UberText.AlignmentOptions align)
+        {
+            var tr = text.transform;
+            float scale = Mathf.Abs(tr.lossyScale.x);
+            if (scale <= 0f || x1 <= x0) return;
+            text.Width = (x1 - x0) / scale;
+            text.Alignment = align;
+            text.Anchor = UberText.AnchorOptions.Middle;
+            tr.position = new Vector3((x0 + x1) / 2f, tr.position.y, z);
         }
 
         private static void ShowTip(Transform at)
@@ -268,7 +316,7 @@ namespace HsPuzzleBridge
 
         private static void ShowKept(int kept)
         {
-            if (_keepLabel != null) _keepLabel.Text = $"{kept} replays, about {kept * MbPerGame:0} MB";
+            if (_keepLabel != null) _keepLabel.Text = $"{kept} replays, {kept * MbPerGame:0} MB";
         }
 
         private static void OnKeptReleased()
