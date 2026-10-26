@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -54,16 +55,11 @@ namespace HsPuzzleBridge
             // Its own group label (the menu's "Quality") isn't wanted here.
             var label = go.transform.Find("Label");
             if (label != null) label.gameObject.SetActive(false);
-            // Narrower than the menu's (SortWidth: the box and its menu are single meshes, so the whole is scaled
-            // across) and in a bigger font (SortFont); the texts, the item template's among them (before the items
-            // are made from it), are stretched back across so they aren't squashed, their boxes as narrow as the box.
+            // A bigger font (SortFont), the template's among them (before the items are made from it).
             var l = Layout.Current;
             foreach (var text in go.GetComponentsInChildren<UberText>(true))
-            {
                 text.FontSize = Mathf.RoundToInt(text.FontSize * l.SortFont);
-                text.Width *= l.SortWidth;
-                Unsquash(text.transform, l.SortWidth);
-            }
+            NarrowSort(go.transform, l.SortWidth);
             foreach (string name in SortNames) _sort.addItem(name);
             // The box's text centred (the menu's items stay as they are), the view's order in it from the start.
             if (_sort.m_selectedItem?.m_text != null) _sort.m_selectedItem.m_text.Alignment = UberText.AlignmentOptions.Center;
@@ -77,7 +73,7 @@ namespace HsPuzzleBridge
             if (_sortT == null) return;
             _sortT.localPosition = new Vector3(l.SortX, 1f, l.SortZ);
             _sortT.localRotation = Quaternion.Euler(0f, l.SortRotY, 0f);
-            _sortT.localScale = new Vector3(l.SortScale * l.SortWidth, 1f, l.SortScale);
+            _sortT.localScale = new Vector3(l.SortScale, 1f, l.SortScale);
             // The selection's text sits only a hair above the box's face: lifted towards the camera.
             var shown = _sort?.m_selectedItem != null ? _sort.m_selectedItem.m_text : null;
             if (shown != null)
@@ -87,22 +83,42 @@ namespace HsPuzzleBridge
             }
         }
 
-        /// <summary>A text's local axis that runs across the page (the world's x) scaled by 1/width, undoing the
-        /// dropdown's narrowing for it.</summary>
-        private static void Unsquash(Transform t, float width)
+        // The parts of the dropdown that keep their shape when it is narrowed: the box's ends (its texture's bolt,
+        // and the button's recess with the other bolt), and the menu's stone borders; in the meshes' own units.
+        private const float SortCapEnd = 0.6f, SortCapButton = 1.65f, SortMenuCap = 0.35f;
+
+        /// <summary>The box and its menu each SortWidth as wide as the menu's (<see cref="Narrowing"/>: their ends
+        /// keep their shape, the button moves in with its end). The menu's frame and items are laid out again from
+        /// their meshes whenever it opens, so they follow.</summary>
+        private static void NarrowSort(Transform root, float width)
         {
-            var axes = new[] { Vector3.right, Vector3.up, Vector3.forward };
-            int best = 0;
-            float bestX = -1f;
-            for (int i = 0; i < 3; i++)
+            if (width >= 1f) return;
+            var bg = root.GetComponent<MeshFilter>();
+            var button = _sort.m_button != null ? _sort.m_button.transform : null;
+            var menu = _sort.m_menu != null ? _sort.m_menu.transform : null;
+            var label = root.Find("Label");
+            var skip = new HashSet<Transform>();
+            if (label != null) skip.Add(label);
+            if (_sort.m_cancelCatcher != null) skip.Add(_sort.m_cancelCatcher.transform);
+            if (bg != null && Narrowing.Span(root, new[] { bg }, out float min, out float max))
             {
-                var w = t.TransformVector(axes[i]);
-                float x = w.sqrMagnitude > 0f ? Mathf.Abs(w.x) / w.magnitude : 0f;
-                if (x > bestX) { bestX = x; best = i; }
+                // The button's end keeps more: the recess it sits in.
+                bool buttonLow = button == null || root.InverseTransformPoint(button.position).x < (min + max) / 2f;
+                var box = Narrowing.Over(root, min, max, buttonLow ? SortCapButton : SortCapEnd,
+                                         buttonLow ? SortCapEnd : SortCapButton, (max - min) * (1f - width));
+                var rigid = new HashSet<Transform>();
+                if (button != null) rigid.Add(button);
+                if (menu != null) rigid.Add(menu);
+                box.Apply(root, rigid, skip);
             }
-            var s = t.localScale;
-            s[best] /= width;
-            t.localScale = s;
+            else Plugin.Log.LogWarning("Replays sort: no box mesh; the dropdown keeps its width");
+            if (menu == null) return;
+            var frame = menu.GetComponentsInChildren<MeshFilter>(true).Where(f => f.name.StartsWith("DropdownTop") ||
+                        f.name.StartsWith("DropdownMiddle") || f.name.StartsWith("DropdownBottom")).ToList();
+            if (Narrowing.Span(menu, frame, out float mMin, out float mMax))
+                Narrowing.Over(menu, mMin, mMax, SortMenuCap, SortMenuCap, (mMax - mMin) * (1f - width))
+                         .Apply(menu, new HashSet<Transform>(), skip);
+            else Plugin.Log.LogWarning("Replays sort: no menu frame meshes; the menu keeps its width");
         }
 
         private static int SortOf(ReplayLibrary.View view)
