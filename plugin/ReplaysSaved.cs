@@ -72,8 +72,9 @@ namespace HsPuzzleBridge
             return go.transform;
         }
 
-        /// <summary>The arrows TitleArrowX of the title's frame units either side of the title, TitleArrowSize world
-        /// units wide, the dropdown's downward arrow turned TitleArrowRot degrees in the page's plane each way.</summary>
+        /// <summary>The arrows TitleArrowX of the title's frame units either side of the title and TitleArrowShift to
+        /// the right (screen), TitleArrowSize world units wide, the dropdown's downward arrow turned TitleArrowRot
+        /// degrees in the page's plane each way.</summary>
         private static void PlaceViewControls(Layout l)
         {
             if (_arrowPrev != null && _arrowNext != null && _title != null && _arrowUnit > 0f)
@@ -84,6 +85,7 @@ namespace HsPuzzleBridge
                     arrow.localPosition = t.localPosition + new Vector3(side * l.TitleArrowX, 0.1f, l.TitleArrowZ);
                     arrow.rotation = Quaternion.AngleAxis(-side * l.TitleArrowRot, Vector3.up) * t.rotation;
                     arrow.localScale = Vector3.one * (l.TitleArrowSize / _arrowUnit); // _arrowUnit: its width at local scale 1
+                    arrow.localPosition += t.parent.InverseTransformDirection(Vector3.right) * l.TitleArrowShift;
                 }
                 // The frame may be turned: the one drawn further left is "before".
                 if (_arrowPrev.position.x > _arrowNext.position.x)

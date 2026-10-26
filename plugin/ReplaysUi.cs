@@ -277,9 +277,10 @@ namespace HsPuzzleBridge
             public float WatchX = 70.25f, WatchZ = -3.2f, WatchScale = 0.8f;
             // The bug button (BugButton.cs), left of the Back button, in Back button heights: the gap to it, up, size.
             public float BugX = 0.4f, BugZ = 0f, BugScale = 0.9f;
-            // The views' arrows beside the page's title (ReplaysSaved.cs): their distance from it in the title's frame
-            // units, their lift, width (world units), and the turn of the dropdown's downward arrow.
-            public float TitleArrowX = 1.8f, TitleArrowZ = 0f, TitleArrowSize = 2.6f, TitleArrowRot = 90f;
+            // The views' arrows at the ends of the title's plate (ReplaysSaved.cs): their distance from the title in the
+            // title's frame units, both moved TitleArrowShift of them right (the plate's parchment sits a little right
+            // of the title), their lift, width (world units), and the turn of the dropdown's downward arrow.
+            public float TitleArrowX = 1.39f, TitleArrowShift = 0.11f, TitleArrowZ = 0f, TitleArrowSize = 2.6f, TitleArrowRot = 90f;
             // The strip above the rows (ReplaysSettings.cs): the rows start ListTop lower; its parts in the first row's
             // units: the sort dropdown at its left (saved and imported), the view's size (or the empty list's line)
             // centred at SizeX, the Import and Settings buttons at its right.
