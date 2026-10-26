@@ -7,10 +7,11 @@ namespace HsPuzzleBridge
     /// <summary>
     /// The row's own buttons in the place's tab with the star, drawn glyphs (<see cref="Glyph"/>), grey as the
     /// unsaved star: the share arrow at the tab's right end, on every row, puts the game's shareable copy on the
-    /// clipboard (<see cref="ReplayShare"/>); the trash bin left of the star, on an imported game's row, removes it
-    /// from the imported folder (asking first unless the settings say not to; a starred copy stays in Saved). Each is a flat mesh under the row's root, facing the screen whatever the page's
-    /// frames are turned by, placed every frame where the layout says (ShareX/Z, TrashX/Z, their sizes in row
-    /// units), clicked through the game's input (a PegUIElement on its collider).
+    /// clipboard (<see cref="ReplayShare"/>); the trash bin, on an imported game's row in place of the star (StarX/Z),
+    /// removes it from the imported folder (asking first unless the settings say not to; a starred copy stays in
+    /// Saved). Each is a flat mesh under the row's root, facing the screen whatever the page's frames are turned
+    /// by, placed every frame where the layout says (ShareX/Z, their sizes in row units), clicked through the
+    /// game's input (a PegUIElement on its collider).
     /// </summary>
     internal static partial class ReplaysUi
     {
@@ -46,7 +47,7 @@ namespace HsPuzzleBridge
                     string id = p.Id;
                     p.Trash = RowGlyph(p, "TrashButton", _trashMesh, _trashHover, () => RemoveImported(id));
                 }
-                PlaceRowGlyph(p, p.Trash, l.TrashX, l.TrashZ, l.TrashScale);
+                PlaceRowGlyph(p, p.Trash, l.StarX, l.StarZ, l.TrashScale); // where the other rows' star is
             }
         }
 

@@ -268,7 +268,7 @@ namespace HsPuzzleBridge
             public float TrinketX = 17.75f, TrinketZ = -10.4f, TrinketScale = 2.9f, TrinketGap = 5.5f;
             public float NameX = 8.8f, NameZ = -14.4f, NameScale = 0.63f;
             public float StarX = 28.6f, StarZ = -1.4f, StarScale = 3.6f; // the save star (ReplaysSaved.cs): centre, its badge's height
-            public float TrashX = 25.8f, TrashZ = -1.4f, TrashScale = 1.8f; // an imported game's remove button: centre, size
+            public float TrashScale = 1.8f; // an imported game's remove button, at the star's spot: its size
             public float ShareX = 38.6f, ShareZ = -1.4f, ShareScale = 1.8f; // the share button
             public float PlaceX = 34f, PlaceZ = -2f, PlaceScale = 0.84f, PlaceTextLift = 0.6f; // the text above its tab's centre
             public float DateX = 60.95f, DateZ = -2.15f, DateScale = 0.76f;
@@ -310,9 +310,9 @@ namespace HsPuzzleBridge
             public string BgColor = "#FFFFFFFF", NameColor = "#F5F5F5FF", PlaceColor = "", DateColor = "", LengthColor = "";
             // A plate behind each text (see PlateStyles): 0 none; with a plate the text is centred on it, at X/Y.
             public float NamePlate = 2f, NamePlateW = 11.85f, NamePlateH = 3.4f;
-            // The place's tab is wider than its text and shifted left of it (PlacePlateShift): the remove button and
-            // the star sit on its left end, the share button on its right.
-            public float PlacePlate = 1f, PlacePlateW = 18f, PlacePlateH = 3.05f, PlacePlateShift = -1.4f;
+            // The place's tab is wider than its text (and can be shifted off it, PlacePlateShift): the star (an
+            // imported row's remove button) sits on its left end, the share button on its right.
+            public float PlacePlate = 1f, PlacePlateW = 15.2f, PlacePlateH = 3.05f, PlacePlateShift = 0f;
             public float DatePlate = 3f, DatePlateW = 29.45f, DatePlateH = 3f;
             public float LengthPlate = 3f, LengthPlateW = 24.25f, LengthPlateH = 3f;
             // The final hand (ReplaysUi.Hand.cs): the icon's centre and height (a card back's, row units), the backs'
@@ -1101,10 +1101,8 @@ namespace HsPuzzleBridge
             HoldPlaces(p, l);
             PlaceBigCards(p);
             Text(p, p.Name, l.NameX, l.NameZ, l.NameScale, l.NameColor, l, l.NamePlate, l.NamePlateW, l.NamePlateH);
-            // Only an imported game's row has the remove button: elsewhere the tab's left end is cut back by its place.
-            float cut = p.Set.View == ReplayLibrary.Imported ? 0f : Mathf.Max(0f, l.StarX - l.TrashX);
-            Text(p, p.PlaceText, l.PlaceX, l.PlaceZ, l.PlaceScale, l.PlaceColor, l, l.PlacePlate, l.PlacePlateW - cut,
-                 l.PlacePlateH, PlaceColor(p.Place), l.PlaceTextLift, l.PlacePlateShift + cut / 2f);
+            Text(p, p.PlaceText, l.PlaceX, l.PlaceZ, l.PlaceScale, l.PlaceColor, l, l.PlacePlate, l.PlacePlateW,
+                 l.PlacePlateH, PlaceColor(p.Place), l.PlaceTextLift, l.PlacePlateShift);
             Text(p, p.Date, l.DateX, l.DateZ, l.DateScale, l.DateColor, l, l.DatePlate, l.DatePlateW, l.DatePlateH);
             Text(p, p.Length, l.LengthX, l.LengthZ, l.LengthScale, l.LengthColor, l, l.LengthPlate, l.LengthPlateW,
                  l.LengthPlateH);

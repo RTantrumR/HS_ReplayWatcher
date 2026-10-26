@@ -13,8 +13,9 @@ namespace HsPuzzleBridge
     ///   arrow, turned to point sideways) shows the one before or after: recent, saved, and imported (other players'
     ///   games, and those converted from Power.log); the title names the shown one.
     /// - The star: each portrait's own favourite badge (FavoriteIconParent, the BG skin collection's heart) with
-    ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on every row: full for a
-    ///   saved game, greyed otherwise; clicking it saves or unsaves.
+    ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on recent and saved rows:
+    ///   full for a saved game, greyed otherwise; clicking it saves or unsaves. Imported rows have the trash bin
+    ///   there instead (the player has the file already; games starred before that stay saved).
     /// - Saving copies the recording (a recent or an imported one) into the saved folder (the first time, the folder
     ///   is asked for); the game stays in its list (a recent one until the limit takes it).
     /// - Unsaving asks first (<see cref="ConfirmPopup"/>; the settings can turn the asking off): still in the recent
@@ -190,7 +191,8 @@ namespace HsPuzzleBridge
 
         /// <summary>The portrait's favourite badge, on, with the star: it loads with the portrait (and its own states
         /// hide it), so it is looked for and switched on every frame. Taken out of the portrait onto the card, where
-        /// the layout puts it (StarX/StarZ, its badge StarScale tall): by default at the left end of the place's tab.</summary>
+        /// the layout puts it (StarX/StarZ, its badge StarScale tall): by default at the left end of the place's tab.
+        /// Imported rows have none (taken out of the portrait all the same, then hidden).</summary>
         private static void UpdateHeart(RowParts p)
         {
             if (p.Root == null || p.Hero == null) return;
@@ -216,6 +218,12 @@ namespace HsPuzzleBridge
                 var b = p.HeartIcon != null ? p.HeartIcon.bounds : default;
                 float h = Mathf.Abs(p.Root.InverseTransformVector(b.size).z);
                 if (h > 0.001f) p.HeartUnit /= h; // the badge's scale per row unit of height
+            }
+            // An imported game has no star: it came as a file the player already has; its trash bin takes the spot.
+            if (p.Set.View == ReplayLibrary.Imported)
+            {
+                if (p.Heart.gameObject.activeSelf) p.Heart.gameObject.SetActive(false);
+                return;
             }
             var l = Layout.Current;
             p.Heart.localPosition = new Vector3(l.StarX, p.HeartY, l.StarZ);

@@ -65,7 +65,7 @@ namespace HsPuzzleBridge
             Element("Minions", "Minion", null, 0.1f, 1.5f),
             Element("Watch", "Watch", null, 0.3f, 3f),
             Element("Star", "Star", null, 0.3f, 5f),
-            Element("Trash", "Trash", null, 0.3f, 5f),
+            new Tab { Name = "Trash", Values = new[] { new Param("TrashScale", "Size (at the star's spot)", 0.3f, 5f, 0.1f) } },
             Element("Share", "Share", null, 0.3f, 5f),
             Element("Bug", "Bug", null, 0.3f, 3f),
             new Tab { Name = "Hand", Color = "HandCountColor", Values = new[]
