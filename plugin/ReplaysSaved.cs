@@ -136,6 +136,7 @@ namespace HsPuzzleBridge
                 UpdateHeart(p);
                 UpdateRowButtons(p);
             }
+            PlaceStripIcons();
         }
 
         // ------------------------------------------------------------------ stars

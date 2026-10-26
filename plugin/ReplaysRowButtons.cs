@@ -54,13 +54,11 @@ namespace HsPuzzleBridge
         /// <summary>A glyph button: its idle mesh, swapped for its hover mesh (its own colour) while the mouse is on it.</summary>
         private static Transform RowGlyph(RowParts p, string name, Mesh mesh, Mesh hover, Action onClick)
         {
-            if (_glyphMaterial == null)
-                _glyphMaterial = new Material(Shader.Find("Sprites/Default")) { mainTexture = Texture2D.whiteTexture, name = "RowGlyph" };
             var go = new GameObject(name) { layer = p.Root.gameObject.layer };
             go.transform.SetParent(p.Root, false);
             var filter = go.AddComponent<MeshFilter>();
             filter.sharedMesh = mesh;
-            go.AddComponent<MeshRenderer>().sharedMaterial = _glyphMaterial;
+            go.AddComponent<MeshRenderer>().sharedMaterial = GlyphMaterial();
             go.AddComponent<BoxCollider>().size = new Vector3(1f, 0.1f, 1f);
             var element = go.AddComponent<PegUIElement>();
             element.AddEventListener(UIEventType.RELEASE, e => onClick());

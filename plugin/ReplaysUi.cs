@@ -297,6 +297,10 @@ namespace HsPuzzleBridge
             // ("" = as the rows' length text).
             public float StripPlate = 4f, StripPlateH = 3.4f, StripPlatePad = 2f;
             public string StripColor = "";
+            // The Settings and Import buttons' icons: height against the drawn label's, the gap before the label (of
+            // the icon's height), and their colour ("" = the label's).
+            public float StripIconSize = 1.1f, StripIconGap = 0.3f;
+            public string StripIconColor = "";
             // Row pitches the list moves per notch of the mouse wheel (the stock scroll moves a tenth of the list);
             // the move glides (WheelStep), so quick notches add up.
             public float ScrollRows = 1f;

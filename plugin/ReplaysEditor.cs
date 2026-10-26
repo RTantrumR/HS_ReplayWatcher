@@ -98,6 +98,7 @@ namespace HsPuzzleBridge
                 new Param("SizeX", "Size X", -10f, 80f, 0.25f), new Param("SizeZ", "Size Y", -30f, 10f, 0.1f),
                 new Param("SettingsX", "Settings X", -10f, 80f, 0.25f), new Param("SettingsZ", "Settings Y", -30f, 10f, 0.1f),
                 new Param("SettingsScale", "Settings size", 0.3f, 3f, 0.05f),
+                new Param("StripIconSize", "Button icons size", 0.3f, 3f, 0.05f), new Param("StripIconGap", "Button icons gap", -0.5f, 2f, 0.05f),
                 new Param("ImportX", "Import X", -10f, 80f, 0.25f), new Param("ImportZ", "Import Y", -30f, 10f, 0.1f),
                 new Param("SortX", "Sort X", -10f, 80f, 0.25f), new Param("SortZ", "Sort Y", -30f, 10f, 0.1f),
                 new Param("SortScale", "Sort size", 0.5f, 10f, 0.1f), new Param("SortRotY", "Sort turn", -180f, 180f, 90f),

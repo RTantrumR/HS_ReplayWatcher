@@ -85,6 +85,24 @@ namespace HsPuzzleBridge
             }
         }
 
+        /// <summary>Import: an arrow pointing down into an open tray.</summary>
+        public static IEnumerable<Vector2[]> Import(Vector2 centre, float size)
+        {
+            Vector2 P(float x, float y) => centre + new Vector2(x, y) * size;
+            yield return Segment(P(0f, -0.46f), P(0f, 0.02f), 0.17f * size); // shaft
+            yield return new[] { P(-0.25f, -0.03f), P(0.25f, -0.03f), P(0f, 0.24f) }; // head
+            yield return Box(P(-0.44f, 0.06f), P(-0.32f, 0.44f)); // the tray's walls and floor
+            yield return Box(P(0.32f, 0.06f), P(0.44f, 0.44f));
+            yield return Box(P(-0.44f, 0.33f), P(0.44f, 0.44f));
+        }
+
+        /// <summary>One colour throughout (a button label's), the face a little lighter at the top.</summary>
+        public static Palette Plain(Color c)
+        {
+            Color32 top = Color.Lerp(c, Color.white, 0.12f), bottom = c;
+            return new Palette { Top = top, Bottom = bottom };
+        }
+
         public static Vector2[] Ellipse(Vector2 c, float rx, float ry, int n)
         {
             var pts = new Vector2[n];
