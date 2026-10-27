@@ -288,7 +288,8 @@ namespace HsPuzzleBridge
             public float SizeX = 40f, SizeZ = -0.25f;
             public float SettingsX = 70.25f, SettingsZ = -0.25f, SettingsScale = 0.8f;
             public float ImportX = 59.5f, ImportZ = -0.25f; // the imported view's Import button (Settings' size)
-            public float SortX = 12.1f, SortZ = -0.25f, SortScale = 4f, SortRotY = 180f, SortWidth = 0.7f, SortFont = 1.35f; // the sort dropdown (the Options menu's), its width (ends kept) and font against the menu's
+            public float SortX = 12.1f, SortZ = -0.25f, SortScale = 4f, SortRotY = 180f, SortWidth = 0.78f, SortFont = 1.35f; // the sort dropdown (the Options menu's), its width (ends kept) and font against the menu's
+            public float SortMenuX = 1.9f; // its open menu moved this many strip units right (its left edge under the box's field)
             // The strip's texts (copies of the row's name text, as the rows' texts are): size, box width in row
             // units; the empty lists' line's width.
             public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 38f;

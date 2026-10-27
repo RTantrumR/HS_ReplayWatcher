@@ -1,24 +1,28 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HarmonyLib;
 using UnityEngine;
 
 namespace HsPuzzleBridge
 {
     /// <summary>
     /// The saved and imported lists' order: a dropdown on the strip (in those two views; a copy of the Options menu's
-    /// graphics quality dropdown) offers newest first, oldest first, best place, by hero, longest; each view keeps
-    /// its own (Library.SortSaved / SortImported). The recent list stays newest first. A row's Index is its place on the page and its Entry its line in the rows file, so
+    /// graphics quality dropdown) offers newest first, oldest first, best place, hero name (A-Z), longest; each view
+    /// keeps its own (Library.SortSaved / SortImported). The recent list stays newest first. The menu's chosen item is
+    /// written white on its dark bar (the game greys it, which the bar makes hard to read). A row's Index is its place on the page and its Entry its line in the rows file, so
     /// a new order only moves the built rows (building is the cost, ~75 ms a row); rows not built yet are made at
     /// their place, the ones near the view first.
     /// </summary>
     internal static partial class ReplaysUi
     {
         private const string OptionsMenuPrefab = "OptionsMenu.prefab:a6e5621068fd7c8429475b3e1a1aa991";
-        private static readonly string[] SortNames = { "Newest first", "Oldest first", "Best place", "By hero", "Longest" };
+        private static readonly string[] SortNames = { "Newest first", "Oldest first", "Best place", "Hero name (A-Z)", "Longest" };
+        private const string OldHeroSort = "By hero"; // the name before 2026-10-27, as a config may still hold it
         private const float SortTextLift = 1f; // world units towards the camera
         private static Transform _sortT;
         private static DropdownControl _sort;
+        private static Vector3 _sortMenuHome; // the menu's place in the dropdown once narrowed (SortMenuX moves it from there)
         private static object _optionsHandle; // the asset handle, kept: a dropped one frees its asset
 
         /// <summary>The Options menu's graphics quality dropdown, from the prefab asset (never instantiated: its
@@ -60,12 +64,33 @@ namespace HsPuzzleBridge
             foreach (var text in go.GetComponentsInChildren<UberText>(true))
                 text.FontSize = Mathf.RoundToInt(text.FontSize * l.SortFont);
             NarrowSort(go.transform, l.SortWidth);
+            if (_sort.m_menu != null) _sortMenuHome = _sort.m_menu.transform.localPosition;
             foreach (string name in SortNames) _sort.addItem(name);
             // The box's text centred (the menu's items stay as they are), the view's order in it from the start.
             if (_sort.m_selectedItem?.m_text != null) _sort.m_selectedItem.m_text.Alignment = UberText.AlignmentOptions.Center;
             _sort.setSelection(SortNames[SortOf(ReplayLibrary.Current)]);
             _sort.setItemChosenCallback((chosen, previous) => SortChosen(chosen as string));
+            _sort.setMenuShownCallback(shown => { if (shown) LiftSortBars(); });
             PlaceSortDropdown(Layout.Current);
+        }
+
+        /// <summary>The items' bars (chosen, hovered) drawn over the menu's frame. They come with mixed sorting orders,
+        /// some at the frame's own (51), and one at the frame's order loses to its middle piece (2026-10-27: "Oldest
+        /// first" chosen showed no bar, only its top edge above that piece). The texts draw in a later queue anyway.</summary>
+        private static void LiftSortBars()
+        {
+            if (_sort?.m_menu == null || _sort.m_menuItemContainer == null) return;
+            int frame = int.MinValue;
+            foreach (Transform piece in _sort.m_menu.transform)
+            {
+                var r = piece.GetComponent<MeshRenderer>();
+                if (r != null && piece.name.StartsWith("Dropdown")) frame = Mathf.Max(frame, r.sortingOrder);
+            }
+            if (frame == int.MinValue) return;
+            foreach (var item in _sort.m_menuItemContainer.GetComponentsInChildren<DropdownMenuItem>(true))
+                foreach (var r in item.GetComponentsInChildren<MeshRenderer>(true))
+                    if (r.GetComponent<MeshFilter>()?.sharedMesh?.name.StartsWith("DropdownSelection") == true)
+                        r.sortingOrder = frame + 1;
         }
 
         private static void PlaceSortDropdown(Layout l)
@@ -74,6 +99,12 @@ namespace HsPuzzleBridge
             _sortT.localPosition = new Vector3(l.SortX, 1f, l.SortZ);
             _sortT.localRotation = Quaternion.Euler(0f, l.SortRotY, 0f);
             _sortT.localScale = new Vector3(l.SortScale, 1f, l.SortScale);
+            if (_sort?.m_menu != null)
+            {
+                var menu = _sort.m_menu.transform;
+                menu.localPosition = _sortMenuHome;
+                menu.position += Vector3.right * (l.SortMenuX * Mathf.Abs(_strip.lossyScale.x));
+            }
             // The selection's text sits only a hair above the box's face: lifted towards the camera.
             var shown = _sort?.m_selectedItem != null ? _sort.m_selectedItem.m_text : null;
             if (shown != null)
@@ -125,6 +156,7 @@ namespace HsPuzzleBridge
         {
             var setting = view == ReplayLibrary.Saved ? Plugin.SortSaved : view == ReplayLibrary.Imported ? Plugin.SortImported : null;
             if (setting == null) return 0;
+            if (setting.Value == OldHeroSort) setting.Value = SortNames[3];
             int i = Array.IndexOf(SortNames, setting.Value);
             return i < 0 ? 0 : i;
         }
@@ -200,6 +232,21 @@ namespace HsPuzzleBridge
                 _wheelShown = 0f;
             }
             Plugin.Log.LogInfo($"Replays: {set.View.Name} sorted {SortNames[SortOf(set.View)]}; first {first?.Id}");
+        }
+
+        /// <summary>An item of the sort dropdown's menu (not of any other dropdown).</summary>
+        internal static bool IsSortItem(DropdownMenuItem item) => _sortT != null && item != null && item.transform.IsChildOf(_sortT);
+    }
+
+    /// <summary>The sort menu's chosen item written white, as a hovered one is: the game greys it, on a bar dark
+    /// enough to make that hard to read. Other dropdowns keep the game's colours.</summary>
+    [HarmonyPatch(typeof(DropdownMenuItem), nameof(DropdownMenuItem.UpdateTextColor))]
+    internal static class SortChosenWhite
+    {
+        private static void Postfix(DropdownMenuItem __instance)
+        {
+            if (__instance.m_selected != null && __instance.m_selected.activeInHierarchy && ReplaysUi.IsSortItem(__instance))
+                __instance.m_text.TextColor = Color.white;
         }
     }
 }

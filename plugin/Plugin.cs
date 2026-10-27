@@ -59,9 +59,9 @@ namespace HsPuzzleBridge
             NoAskDelete = Config.Bind("Library", "NoAskDelete", false,
                 "With NoAskRemove: also delete without asking, when unstarring a saved replay deletes it for good.");
             SortSaved = Config.Bind("Library", "SortSaved", "Newest first",
-                "The saved replays' order (the page's sort button): Newest first, Oldest first, Best place, By hero, Longest.");
+                "The saved replays' order (the page's sort button): Newest first, Oldest first, Best place, Hero name (A-Z), Longest.");
             SortImported = Config.Bind("Library", "SortImported", "Newest first",
-                "The imported replays' order (the page's sort button): Newest first, Oldest first, Best place, By hero, Longest.");
+                "The imported replays' order (the page's sort button): Newest first, Oldest first, Best place, Hero name (A-Z), Longest.");
             RowLayout = Config.Bind("Library", "RowLayout", "",
                 "Replays page row layout overrides, e.g. \"Pitch=15;HeroScale=3.4\" (see ReplaysUi.Layout; Alt+F12 reloads).");
             EditorKey = Config.Bind("Library", "EditorKey", KeyCode.F11,
