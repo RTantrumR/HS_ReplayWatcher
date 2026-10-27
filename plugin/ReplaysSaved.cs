@@ -9,9 +9,10 @@ namespace HsPuzzleBridge
     /// Saved and imported games: a folder the player picks outside the Hearthstone folder (Library.SavedDir), so game
     /// updates, repairs and reinstalls never touch it; its Saved and Imported folders are the page's second and third
     /// views (<see cref="ReplayLibrary.SplitSavedDir"/>).
-    /// - The views go round as a carousel: an arrow on each side of the page's title (the Options menu's dropdown
-    ///   arrow, turned to point sideways) shows the one before or after: recent, saved, and imported (other players'
-    ///   games, and those converted from Power.log); the title names the shown one.
+    /// - The views (recent, saved, and imported: other players' games, and those converted from Power.log) are tabs
+    ///   in the page's title (ReplaysUi.Tabs.cs). If the page's frame isn't as expected, an arrow on each side of the
+    ///   title (the Options menu's dropdown arrow, turned to point sideways) goes round them instead, the title naming
+    ///   the shown one.
     /// - The star: each portrait's own favourite badge (FavoriteIconParent, the BG skin collection's heart) with
     ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on recent and saved rows:
     ///   full for a saved game, greyed otherwise; clicking it saves or unsaves. Imported rows have the trash bin
@@ -30,18 +31,15 @@ namespace HsPuzzleBridge
 
         private static string CurrentTitle => ReplayLibrary.Current.Title;
 
-        /// <summary>The views' arrows beside the title, and the empty lists' lines.</summary>
+        /// <summary>The views' tabs in the title (ReplaysUi.Tabs.cs; the arrows beside the title if the page's frame
+        /// isn't as expected), and the empty lists' lines.</summary>
         private static void CreateViewControls()
         {
-            if (_strip == null || _arrowPrev != null) return;
-            var source = OptionsDropdown();
-            var arrow = source != null ? source.m_button : null;
-            if (arrow != null && _title != null)
-            {
-                _arrowPrev = ViewArrow(arrow, "ViewPrev", () => ReplayLibrary.Show(ReplayLibrary.Prev));
-                _arrowNext = ViewArrow(arrow, "ViewNext", () => ReplayLibrary.Show(ReplayLibrary.Next));
-            }
-            else Plugin.Log.LogWarning("Replays: no dropdown arrow in the Options menu, or no title; the views have no arrows");
+            if (_strip == null || _arrowPrev != null || HasTabs) return;
+            bool tabs;
+            try { tabs = CreateTabs(); }
+            catch (Exception e) { Plugin.Log.LogWarning("Replays tabs: " + e); tabs = false; }
+            if (!tabs) CreateViewArrows();
             if (_stripTextSource != null)
             {
                 // The empty saved list's line: another copy of the row's name text, where the slider is.
@@ -52,6 +50,18 @@ namespace HsPuzzleBridge
                 ShowStripText(_importedEmptyText, false);
             }
             PlaceViewControls(Layout.Current);
+        }
+
+        private static void CreateViewArrows()
+        {
+            var source = OptionsDropdown();
+            var arrow = source != null ? source.m_button : null;
+            if (arrow != null && _title != null)
+            {
+                _arrowPrev = ViewArrow(arrow, "ViewPrev", () => ReplayLibrary.Show(ReplayLibrary.Prev));
+                _arrowNext = ViewArrow(arrow, "ViewNext", () => ReplayLibrary.Show(ReplayLibrary.Next));
+            }
+            else Plugin.Log.LogWarning("Replays: no dropdown arrow in the Options menu, or no title; the views have no arrows");
         }
 
         /// <summary>A copy of the dropdown's arrow button under the title's frame, clicked through its UIBButton.</summary>
@@ -78,6 +88,7 @@ namespace HsPuzzleBridge
         /// degrees in the page's plane each way.</summary>
         private static void PlaceViewControls(Layout l)
         {
+            PlaceTabs(l);
             if (_arrowPrev != null && _arrowNext != null && _title != null && _arrowUnit > 0f)
             {
                 var t = _title.transform;
