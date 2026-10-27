@@ -30,6 +30,13 @@ namespace HsPuzzleBridge
             public readonly List<string> HeroPowers = new List<string>(), Trinkets = new List<string>();
             /// <summary>The quest that traded the hero power away and its reward (the rows file's 13th field).</summary>
             public readonly List<string> HpQuest = new List<string>();
+            /// <summary>The icons' text tags at the game's end, by slot: h0, h1 (the top cells), t0, t1 (the bottom
+            /// ones), q, r (that quest and reward); the rows file's 14th field (hsserver.catalog.TEXT_TAGS).</summary>
+            public readonly Dictionary<string, List<KeyValuePair<int, int>>> IconTags =
+                new Dictionary<string, List<KeyValuePair<int, int>>>();
+
+            public List<KeyValuePair<int, int>> TagsOf(string slot) =>
+                IconTags.TryGetValue(slot, out var tags) ? tags : null;
         }
 
         /// <summary>A card on the final board or in the final hand (a spell: 0 attack and health).</summary>
@@ -290,7 +297,7 @@ namespace HsPuzzleBridge
         }
 
         /// <summary>Every view's rows file: one game per line, newest first,
-        /// id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand|hero power quest (board, hand: card:attack:health:golden[:keywords];
+        /// id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand|hero power quest|icon tags (board, hand: card:attack:health:golden[:keywords];
         /// lists comma-separated; see hsserver.catalog.row). Public: the saved view's file is also written by the page.</summary>
         public static void LoadRows()
         {
@@ -328,10 +335,30 @@ namespace HsPuzzleBridge
                 if (f.Length > 10) entry.Trinkets.AddRange(f[10].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
                 if (f.Length > 11) ParseCards(f[11], entry.Hand);
                 if (f.Length > 12) entry.HpQuest.AddRange(f[12].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+                if (f.Length > 13) ParseTags(f[13], entry.IconTags);
                 entries.Add(entry);
             }
             view.Loaded = true;
             view.Version++;
+        }
+
+        /// <summary>slot:tag=value;tag=value, comma-separated (see hsserver.catalog.row).</summary>
+        private static void ParseTags(string field, Dictionary<string, List<KeyValuePair<int, int>>> into)
+        {
+            foreach (string item in field.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                int colon = item.IndexOf(':');
+                if (colon <= 0) continue;
+                var pairs = new List<KeyValuePair<int, int>>();
+                foreach (string pair in item.Substring(colon + 1).Split(';'))
+                {
+                    int eq = pair.IndexOf('=');
+                    if (eq <= 0) continue;
+                    int? tag = ParseInt(pair.Substring(0, eq)), value = ParseInt(pair.Substring(eq + 1));
+                    if (tag.HasValue && value.HasValue) pairs.Add(new KeyValuePair<int, int>(tag.Value, value.Value));
+                }
+                if (pairs.Count > 0) into[item.Substring(0, colon)] = pairs;
+            }
         }
 
         private static void ParseCards(string field, List<Minion> cards)

@@ -20,6 +20,8 @@ namespace HsPuzzleBridge
             // quest, reward, then the quest's goal (the {0} of its text) when known
             for (int i = 0; i < entry.HpQuest.Count && i < 2; i++) p.HpQuestIds.Add(entry.HpQuest[i]);
             if (entry.HpQuest.Count > 2) int.TryParse(entry.HpQuest[2], out p.HpQuestGoal);
+            p.HpQuestTags.Add(entry.TagsOf("q"));
+            p.HpQuestTags.Add(entry.TagsOf("r"));
         }
 
         /// <summary>Per frame: the quest's and the reward's cards shown with the hero power's hover card, as tall as it,
@@ -33,7 +35,8 @@ namespace HsPuzzleBridge
             if (on && p.HpQuestCards.Count == 0)
                 for (int i = 0; i < p.HpQuestIds.Count; i++)
                 {
-                    var actor = QuestCardActor(p.HpQuestIds[i], p.HpBig.gameObject.layer, i == 0 ? p.HpQuestGoal : 0);
+                    var actor = QuestCardActor(p.HpQuestIds[i], p.HpBig.gameObject.layer, i == 0 ? p.HpQuestGoal : 0,
+                                               i < p.HpQuestTags.Count ? p.HpQuestTags[i] : null);
                     if (actor == null) continue;
                     actor.transform.SetParent(p.Root, false);
                     p.HpQuestCards.Add(actor.transform);
@@ -85,9 +88,9 @@ namespace HsPuzzleBridge
             return RendererBounds(a.gameObject);
         }
 
-        /// <summary>A quest's or a reward's card actor, as a hand card's is made (null if it can't load); a quest's goal
-        /// fills its text's {0}.</summary>
-        private static Actor QuestCardActor(string cardId, int layer, int goal)
+        /// <summary>A quest's or a reward's card actor, as a hand card's is made (null if it can't load), with its tags
+        /// at the game's end; a quest's goal fills its text's {0}.</summary>
+        private static Actor QuestCardActor(string cardId, int layer, int goal, List<KeyValuePair<int, int>> tags)
         {
             try
             {
@@ -102,6 +105,8 @@ namespace HsPuzzleBridge
                 }
                 actor.SetIgnoreGameEntity(true);
                 var shown = def.Clone();
+                if (tags != null)
+                    foreach (var t in tags) shown.SetTag((GAME_TAG)t.Key, t.Value);
                 if (goal > 0) shown.SetTag(GAME_TAG.QUEST_PROGRESS_TOTAL, goal);
                 actor.SetEntityDef(shown);
                 actor.SetPremium(TAG_PREMIUM.NORMAL);

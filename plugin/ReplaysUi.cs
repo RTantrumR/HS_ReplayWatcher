@@ -448,6 +448,7 @@ namespace HsPuzzleBridge
             public Transform HpBig; // the hero power's hover card, when a quest traded it away (ReplaysUi.HpQuest.cs)
             public readonly List<string> HpQuestIds = new List<string>(); // that quest and its reward
             public int HpQuestGoal; // the quest's goal, the {0} of its text (0: unknown)
+            public readonly List<List<KeyValuePair<int, int>>> HpQuestTags = new List<List<KeyValuePair<int, int>>>(); // theirs at the end
             public readonly List<Transform> HpQuestCards = new List<Transform>(); // their cards beside it (made when first shown)
             public HandParts Hand; // the final hand's icon and cards (ReplaysUi.Hand.cs); null: an empty hand
         }
@@ -973,6 +974,10 @@ namespace HsPuzzleBridge
             if (template == null || slot == null || card == null) return;
             if (!template.BindDataModel(card, slot.gameObject, true, true))
                 Plugin.Log.LogWarning($"Replays row: couldn't bind {card.CardId} to {slot.name}");
+            // The model's tag overrides (the card's state at the game's end) are off by default on the game's cards.
+            if (card.GameTagOverrides.Count > 0)
+                foreach (var shown in slot.GetComponentsInChildren<Hearthstone.UI.Card>(true))
+                    shown.UseTagOverridesFromDataModel = true;
         }
 
         private static Transform Show(Transform t, bool on)
@@ -1387,10 +1392,12 @@ namespace HsPuzzleBridge
                 // the first two (an anomaly's), where a second hero power would be. Trinkets get the gold cost gem
                 // too (the stock page gives them none): every icon of the grid shows one, alike, and the row
                 // re-binds the second hero power's icon and hover card from this model anyway (seen 2026-10-15).
-                HeroPower = Card(e.HeroPowers, 0, SpellType.COIN_MANA_GEM) ?? HeroOwnPower(e.Hero),
-                DualHeroPower = Card(e.HeroPowers, 1, SpellType.COIN_MANA_GEM),
-                Trinket1 = Card(e.Trinkets, 0, SpellType.COIN_MANA_GEM),
-                Trinket2 = Card(e.Trinkets, 1, SpellType.COIN_MANA_GEM),
+                // Each with its tags at the game's end (counters, alternate texts, costs: e.TagsOf), as tag overrides
+                // the slots' cards apply (BindCard turns that on).
+                HeroPower = Card(e.HeroPowers, 0, SpellType.COIN_MANA_GEM, e.TagsOf("h0")) ?? HeroOwnPower(e.Hero),
+                DualHeroPower = Card(e.HeroPowers, 1, SpellType.COIN_MANA_GEM, e.TagsOf("h1")),
+                Trinket1 = Card(e.Trinkets, 0, SpellType.COIN_MANA_GEM, e.TagsOf("t0")),
+                Trinket2 = Card(e.Trinkets, 1, SpellType.COIN_MANA_GEM, e.TagsOf("t1")),
             };
         }
 
@@ -1409,11 +1416,14 @@ namespace HsPuzzleBridge
             return spells;
         }
 
-        private static CardDataModel Card(List<string> ids, int i, SpellType? spell)
+        private static CardDataModel Card(List<string> ids, int i, SpellType? spell, List<KeyValuePair<int, int>> tags = null)
         {
             if (i >= ids.Count || string.IsNullOrEmpty(ids[i])) return null;
             var card = new CardDataModel { CardId = ids[i], Premium = TAG_PREMIUM.NORMAL };
             if (spell.HasValue) card.SpellTypes = new DataModelList<SpellType> { spell.Value };
+            if (tags != null)
+                foreach (var t in tags)
+                    card.GameTagOverrides.Add(new GameTagValueDataModel { GameTag = (GAME_TAG)t.Key, Value = t.Value });
             return card;
         }
 
