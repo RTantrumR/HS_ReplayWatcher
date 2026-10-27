@@ -28,6 +28,8 @@ namespace HsPuzzleBridge
             public int? Rating, Change;
             public readonly List<Minion> Board = new List<Minion>(), Hand = new List<Minion>();
             public readonly List<string> HeroPowers = new List<string>(), Trinkets = new List<string>();
+            /// <summary>The quest that traded the hero power away and its reward (the rows file's 13th field).</summary>
+            public readonly List<string> HpQuest = new List<string>();
         }
 
         /// <summary>A card on the final board or in the final hand (a spell: 0 attack and health).</summary>
@@ -288,7 +290,7 @@ namespace HsPuzzleBridge
         }
 
         /// <summary>Every view's rows file: one game per line, newest first,
-        /// id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand (board, hand: card:attack:health:golden[:keywords];
+        /// id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand|hero power quest (board, hand: card:attack:health:golden[:keywords];
         /// lists comma-separated; see hsserver.catalog.row). Public: the saved view's file is also written by the page.</summary>
         public static void LoadRows()
         {
@@ -325,6 +327,7 @@ namespace HsPuzzleBridge
                 if (f.Length > 9) entry.HeroPowers.AddRange(f[9].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
                 if (f.Length > 10) entry.Trinkets.AddRange(f[10].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
                 if (f.Length > 11) ParseCards(f[11], entry.Hand);
+                if (f.Length > 12) entry.HpQuest.AddRange(f[12].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
                 entries.Add(entry);
             }
             view.Loaded = true;

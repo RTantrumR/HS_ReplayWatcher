@@ -234,7 +234,7 @@ def check_row(path: Path):
         raise Refused("the game can't be read") from None
     if g is None:
         raise Refused("not a Battlegrounds game with a player to watch")
-    cards = [g.hero, *g.hero_powers, *g.trinkets] + [m[0] for m in g.board + g.hand]
+    cards = [g.hero, *g.hero_powers, *g.trinkets, *g.hp_quest] + [m[0] for m in g.board + g.hand]
     for card in cards:
         if card and not CARD_ID.fullmatch(str(card)):
             raise Refused("a card id of an unexpected form")

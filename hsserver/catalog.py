@@ -28,13 +28,17 @@ log = logging.getLogger("catalog")
 CACHE_NAME = ".catalog.json"
 ROWS_NAME = ".catalog.txt"  # the same games as rows (see row()), read by the plugin's Replays page
 SEED_NAME = ".catalog.seed.txt"  # made-up rows (tools/seed_catalog.py), listed with the real games
-CACHE_VERSION = 8  # 4: spectated games left out of recordings (recording.watching_another); 5: place only when over;
-# 6: the 2x2 grid of hero powers and trinkets (see icon_grid); 7: the final board's keywords; 8: the final hand
+CACHE_VERSION = 10  # 4: spectated games left out of recordings (recording.watching_another); 5: place only when over;
+# 6: the 2x2 grid of hero powers and trinkets (see icon_grid); 7: the final board's keywords; 8: the final hand;
+# 9: a hero power traded away by a quest (traded_hero_power); 10: its quest's goal
 HANDSHAKE, POWER_HISTORY, ENTITY_CHOICES, BG_RATING_CHANGE = 168, 19, 17, 34
 TAG_TURN, TAG_HERO_ENTITY, TAG_PLAYER_LEADERBOARD_PLACE = 20, 27, 1373
 TAG_PREMIUM, TAG_HEALTH, TAG_ATK, TAG_DAMAGE, TAG_ZONE, TAG_CONTROLLER, TAG_PLAYER_ID = 12, 45, 47, 44, 49, 50, 30
 TAG_CARDTYPE, TAG_ZONE_POSITION, ZONE_PLAY, ZONE_HAND, CARDTYPE_MINION = 202, 263, 1, 3, 4
 CARDTYPE_HERO_POWER, CARDTYPE_BATTLEGROUND_TRINKET = 10, 44
+# A quest that trades a hero power away (see traded_hero_power); 1396 has no name in the client: a reward's quest.
+TAG_LAST_AFFECTED_BY, TAG_QUEST, TAG_REWARD_QUEST, TAG_BACON_IS_HEROPOWER_QUESTREWARD = 18, 462, 1396, 2706
+TAG_QUEST_PROGRESS_TOTAL = 535  # the {0} in a quest's text
 # A minion's keywords as the stock Full Stats page shows them (BaconDisplay: taunt, divine shield, windfury, reborn,
 # stealth, poisonous, or else venomous), one letter each in the row.
 KEYWORDS = (("T", 190), ("D", 194), ("W", 189), ("R", 1085), ("S", 191), ("P", 363), ("V", 2853))
@@ -62,6 +66,8 @@ class Game:
     hero_powers: list[str] = field(default_factory=list)
     trinkets: list[str] = field(default_factory=list)
     hand: list[list] = field(default_factory=list)  # the hand the game ended with, as the board (spells: 0 attack/health)
+    # The quest that traded the hero power away, its reward and the quest's goal (see traded_hero_power).
+    hp_quest: list[str] = field(default_factory=list)
 
 
 def is_local_session(rec: Recording) -> bool:
@@ -137,6 +143,9 @@ def read_game(path: Path) -> Game | None:
     hero_powers, trinkets = icon_grid(
         [e for e in in_play if e.tags.get(TAG_CARDTYPE) == CARDTYPE_HERO_POWER],
         [e for e in in_play if e.tags.get(TAG_CARDTYPE) == CARDTYPE_BATTLEGROUND_TRINKET], was_hero_power, path.name)
+    hp_quest: list[str] = []
+    if not hero_powers:
+        hero_powers, hp_quest = traded_hero_power(gs, pid, was_hero_power)
     start_ms = next((p.ms for p in rec.packets if p.dir == "C2S" and p.type == HANDSHAKE), rec.packets[0].ms)
     return Game(
         id=game_id(path),
@@ -152,7 +161,32 @@ def read_game(path: Path) -> Game | None:
         hero_powers=hero_powers,
         trinkets=trinkets,
         hand=[card_entry(e) for e in hand[:10]],
+        hp_quest=hp_quest,
     )
+
+
+def traded_hero_power(gs: GameState, pid, was_hero_power: set[int]) -> tuple[list[str], list[str]]:
+    """A game that ends with no hero power in play: the player's last one, and if a quest traded it away, that quest,
+    its reward and the quest's goal ([quest, reward, QUEST_PROGRESS_TOTAL as text]; the reward and the goal when
+    known). Sire Denathrius's "Whodunit?" (2026-10-27): it offers two quests,
+    each with a reward pointing back at it (tag 1396, unnamed in the client) and marked as the hero power's
+    (BACON_IS_HEROPOWER_QUESTREWARD); completing the chosen one (the hero power's LAST_AFFECTED_BY) removes the hero
+    power, and its reward takes the slot."""
+    gone = [gs.entities[i] for i in sorted(was_hero_power) if i in gs.entities
+            and gs.entities[i].tags.get(TAG_CONTROLLER) == pid and gs.entities[i].card_id
+            and gs.entities[i].tags.get(TAG_CARDTYPE) == CARDTYPE_HERO_POWER]
+    if not gone:
+        return [], []
+    hp = gone[-1]
+    quest = gs.entities.get(hp.tags.get(TAG_LAST_AFFECTED_BY, -1))
+    if quest is None or not quest.tags.get(TAG_QUEST) or not quest.card_id:
+        return [hp.card_id], []
+    reward = next((e for e in gs.entities.values() if e.tags.get(TAG_REWARD_QUEST) == quest.id
+                   and e.tags.get(TAG_BACON_IS_HEROPOWER_QUESTREWARD) and e.card_id), None)
+    if reward is None:
+        return [hp.card_id], [quest.card_id]
+    total = quest.tags.get(TAG_QUEST_PROGRESS_TOTAL)
+    return [hp.card_id], [quest.card_id, reward.card_id] + ([str(total)] if total else [])
 
 
 def card_entry(e) -> list:
@@ -184,12 +218,15 @@ def icon_grid(hero_powers: list, trinkets: list, was_hero_power: set[int], name:
 
 
 def row(g: Game) -> str:
-    """id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand: rating/change empty when
-    unknown; board and hand comma-separated card:attack:health:golden[:keywords]; hero powers and trinkets
-    comma-separated: the icon grid's top and bottom cells (see icon_grid; a top cell may hold a trinket)."""
+    """id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand|hero power quest: rating/change
+    empty when unknown; board and hand comma-separated card:attack:health:golden[:keywords]; hero powers and trinkets
+    comma-separated: the icon grid's top and bottom cells (see icon_grid; a top cell may hold a trinket); the last
+    field the quest and reward that traded the hero power away and the quest's goal (see traded_hero_power),
+    comma-separated, or empty."""
     return (f"{g.id}|{g.start}|{g.hero}|{g.place}|{g.turns}|{g.minutes}|"
             f"{'' if g.rating is None else g.rating}|{'' if g.change is None else g.change}|"
-            + _cards(g.board) + f"|{','.join(g.hero_powers)}|{','.join(g.trinkets)}|" + _cards(g.hand))
+            + _cards(g.board) + f"|{','.join(g.hero_powers)}|{','.join(g.trinkets)}|" + _cards(g.hand)
+            + f"|{','.join(g.hp_quest)}")
 
 
 def _cards(cards: list[list]) -> str:
@@ -210,7 +247,8 @@ def parse_row(line: str) -> Game | None:
         return Game(id=f[0], start=f[1], hero=f[2], place=int(f[3]), turns=int(f[4]), minutes=int(f[5]),
                     rating=int(f[6]) if f[6] else None, change=int(f[7]) if f[7] else None, board=_parse_cards(f[8]),
                     hero_powers=[x for x in f[9].split(",") if x], trinkets=[x for x in f[10].split(",") if x],
-                    hand=_parse_cards(f[11]) if len(f) > 11 else [])
+                    hand=_parse_cards(f[11]) if len(f) > 11 else [],
+                    hp_quest=[x for x in f[12].split(",") if x] if len(f) > 12 else [])
     except ValueError:
         return None
 

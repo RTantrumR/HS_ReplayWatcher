@@ -54,6 +54,9 @@ namespace HsPuzzleBridge
                 new Param("HpX", "X", -10f, 80f, 0.25f), new Param("HpZ", "Y", -30f, 10f, 0.1f),
                 new Param("HpScale", "Size", 0.5f, 8f, 0.1f), new Param("HpGap", "Gap", -15f, 15f, 0.25f),
                 new Param("HpLockSize", "Lock size", 0.1f, 1.5f, 0.05f), new Param("HpLockZ", "Lock Y", -1f, 1f, 0.02f),
+                new Param("HpQuestGap", "Quest cards gap", 0f, 0.5f, 0.01f), new Param("HpQuestSize", "Quest cards size", 0.5f, 2f, 0.01f),
+                new Param("HpQuestUp", "Quest cards Y", -0.5f, 0.5f, 0.01f), new Param("HpQuestTrim", "Quest cards width share", 0.5f, 1f, 0.005f),
+                new Param("HpQuestShift", "Quest cards' hero power X", -20f, 10f, 0.25f),
             } },
             new Tab { Name = "Trinkets", Values = new[]
             {

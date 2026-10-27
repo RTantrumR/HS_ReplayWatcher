@@ -238,6 +238,7 @@ namespace HsPuzzleBridge
             {
                 if (p.Root == null || !p.Row.gameObject.activeSelf) continue;
                 PlaceBigCards(p);
+                SyncHpQuestCards(p);
                 HoldPlaces(p, Layout.Current);
                 UpdateHand(p);
                 foreach (var t in new[] { p.Name, p.PlaceText, p.Date, p.Length })
@@ -271,6 +272,12 @@ namespace HsPuzzleBridge
             // A game left without a hero power shows the hero's own, locked (ReplaysUi.LockedHp.cs): the padlock's
             // width against the icon's, and its move up the screen in icon widths.
             public float HpLockSize = 0.36f, HpLockZ = 0f;
+            // A hero power a quest traded away shows the quest's and the reward's cards beside its hover card
+            // (ReplaysUi.HpQuest.cs): their gap (of the hover card's frame width: ~15 px at 1080p), height and lift (of
+            // its frame height), and the share of a hand card's frame bounds that is the card drawn (measured 183 of
+            // 233 px).
+            public float HpQuestGap = 0.06f, HpQuestSize = 1.29f, HpQuestUp = 0.04f, HpQuestTrim = 0.785f;
+            public float HpQuestShift = -3f; // the hover card moved right (row units) when it has them, so all three fit
             public float TrinketX = 17.75f, TrinketZ = -10.4f, TrinketScale = 2.9f, TrinketGap = 5.5f;
             public float NameX = 8.8f, NameZ = -14.4f, NameScale = 0.63f;
             public float StarX = 28.6f, StarZ = -1.4f, StarScale = 3.6f; // the save star (ReplaysSaved.cs): centre, its badge's height
@@ -438,6 +445,10 @@ namespace HsPuzzleBridge
             public bool TrinketsOpened;
             public bool HpLocked; // no hero power left at the end: the hero's own is shown under a padlock
             public Transform HpLock;
+            public Transform HpBig; // the hero power's hover card, when a quest traded it away (ReplaysUi.HpQuest.cs)
+            public readonly List<string> HpQuestIds = new List<string>(); // that quest and its reward
+            public int HpQuestGoal; // the quest's goal, the {0} of its text (0: unknown)
+            public readonly List<Transform> HpQuestCards = new List<Transform>(); // their cards beside it (made when first shown)
             public HandParts Hand; // the final hand's icon and cards (ReplaysUi.Hand.cs); null: an empty hand
         }
 
@@ -924,6 +935,7 @@ namespace HsPuzzleBridge
                 if (slot.Key != null && slot.Value != null && IsTrinket(slot.Value.CardId)) parts.TrinketSlots.Add(slot.Key);
             // Their hover cards too (else hovering shows the hero card), kept beside their icons wherever they go.
             BigCard(parts, template, parts.HeroPower, Find(root, "HeroPowerBigCard"), game.HeroPower);
+            AddHpQuestCards(parts, Find(root, "HeroPowerBigCard"), entry);
             BigCard(parts, template, dual, Find(root, "DualHeroPowerBigCard"), game.DualHeroPower);
             BigCard(parts, template, parts.Trinket1, Find(root, "Trinket1BigCard"), game.Trinket1);
             BigCard(parts, template, parts.Trinket2, Find(root, "Trinket2BigCard"), game.Trinket2);
@@ -1188,6 +1200,7 @@ namespace HsPuzzleBridge
                 Vector3 at = l.CardFixed >= 0.5f
                     ? new Vector3(l.CardX, 0f, l.CardZ)
                     : p.Root.InverseTransformPoint(icon.position) + new Vector3(l.CardX, 0f, l.CardZ);
+                if (big == p.HpBig && p.HpQuestIds.Count > 0) at.x += l.HpQuestShift; // its quest cards fit the page
                 at.y = l.CardY;
                 big.position = p.Root.TransformPoint(at);
                 var drift = big.GetComponent<TokyoDriftOnActivate>();
