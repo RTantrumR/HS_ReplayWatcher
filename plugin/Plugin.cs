@@ -32,7 +32,8 @@ namespace HsPuzzleBridge
             RecorderEnabled = Config.Bind("Recorder", "Enabled", true,
                 "Write every game-server packet (both directions) to a JSONL file per game connection.");
             RecordingsDir = Config.Bind("Recorder", "Directory", "",
-                "Folder that receives the recordings. Empty: %LOCALAPPDATA%\\HS Replay Watcher\\Recordings.");
+                "Folder that receives the recordings. Empty: the Recent folder in Library.SavedDir once that is chosen, " +
+                "until then %LOCALAPPDATA%\\HS Replay Watcher\\Recordings.");
             RecordLocalSessions = Config.Bind("Recorder", "RecordLocalSessions", false,
                 "Also record connections to the local replay server (watching a replay); a dev aid.");
             LocalServerHost = Config.Bind("LocalServer", "Host", "127.0.0.1", "Local game server address.");
@@ -50,7 +51,7 @@ namespace HsPuzzleBridge
                 "How many of the newest games keep their recordings; older ones are deleted at the next catalog scan.",
                 new AcceptableValueRange<int>(5, 50)));
             SavedDir = Config.Bind("Library", "SavedDir", "",
-                "Folder for the saved and imported games (its Saved and Imported folders), outside the Hearthstone folder " +
+                "Folder for the replays (its Recent, Saved and Imported folders), outside the Hearthstone folder " +
                 "so updates and reinstalls never touch it. Empty: asked for (a folder window) the first time a game is " +
                 "saved or imported.");
             NoAskRemove = Config.Bind("Library", "NoAskRemove", false,
@@ -93,8 +94,13 @@ namespace HsPuzzleBridge
 
         private static string DataDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HS Replay Watcher");
 
-        /// <summary>The recordings folder: the config's, else one under %LOCALAPPDATA% (an install keeps none in HS).</summary>
-        internal static string Recordings => RecordingsDir.Value.Length > 0 ? RecordingsDir.Value : Path.Combine(DataDir, "Recordings");
+        /// <summary>The recordings folder: the config's, else the chosen folder's Recent, else one under %LOCALAPPDATA%
+        /// (an install keeps none in HS; its games move into Recent once a folder is chosen: <see cref="ReplayLibrary.SplitSavedDir"/>).</summary>
+        internal static string Recordings => RecordingsDir.Value.Length > 0 ? RecordingsDir.Value
+                                           : ReplayLibrary.HasSavedDir ? ReplayLibrary.RecentDir : DefaultRecordings;
+
+        /// <summary>The recordings folder until one is chosen (and while the chosen one is missing, e.g. a drive unplugged).</summary>
+        internal static string DefaultRecordings => Path.Combine(DataDir, "Recordings");
 
         /// <summary>The converter's default output (python -m hsserver.powerlog): the imported games until a saved folder
         /// is chosen, whose Imported folder then takes them (<see cref="ReplayLibrary.SplitSavedDir"/>).</summary>

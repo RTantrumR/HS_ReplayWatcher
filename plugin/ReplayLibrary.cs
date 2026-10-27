@@ -103,9 +103,11 @@ namespace HsPuzzleBridge
             LoadRows();
         }
 
-        /// <summary>The folder the player chose, holding Saved and Imported.</summary>
+        /// <summary>The folder the player chose, holding Recent, Saved and Imported.</summary>
         public static string SavedRoot => Plugin.SavedDir.Value;
         public static bool HasSavedDir => !string.IsNullOrEmpty(SavedRoot) && Directory.Exists(SavedRoot);
+        /// <summary>The recent games (the recorder's folder, <see cref="Plugin.Recordings"/>, unless the config names one).</summary>
+        public static string RecentDir => Path.Combine(SavedRoot, "Recent");
         /// <summary>The saved (starred) games.</summary>
         public static string SavedDir => Path.Combine(SavedRoot, "Saved");
         /// <summary>The imported games: the chosen folder's Imported, or, until one is chosen, the converter's folder.</summary>
@@ -114,15 +116,17 @@ namespace HsPuzzleBridge
         /// <summary>Our recordings' names (the recorder's yyyyMMdd_HHmmss_game..., the converter's ..._log...).</summary>
         private static readonly Regex RecordingName = new Regex(@"^\d{8}_\d{6}_.+\.jsonl(\.gz)?$");
 
-        /// <summary>The chosen folder holds two: Saved and Imported. Games from before the split move in: those at its
-        /// top into Saved, the converter's (Plugin.Logs) into Imported; each folder's catalog files go with its games
-        /// while the new folder has none (File.Move keeps the write times, so the scan's cache still knows them).
+        /// <summary>The chosen folder holds three: Recent, Saved and Imported. Games from before the split move in: those
+        /// at its top into Saved, the converter's (Plugin.Logs) into Imported, the recorder's from before the folder
+        /// was chosen (or while it was missing) into Recent; each folder's catalog files go with its games while the
+        /// new folder has none (File.Move keeps the write times, so the scan's cache still knows them).
         /// Run at every page open, as the converter keeps writing to its own folder.</summary>
         public static void SplitSavedDir()
         {
             if (!HasSavedDir) return;
             MoveGames(SavedRoot, SavedDir);
             MoveGames(Plugin.Logs, ImportedDir);
+            if (Plugin.RecordingsDir.Value.Length == 0) MoveGames(Plugin.DefaultRecordings, RecentDir);
         }
 
         private static void MoveGames(string from, string to)
@@ -139,8 +143,9 @@ namespace HsPuzzleBridge
                     if (!RecordingName.IsMatch(name) && !(catalog && name.StartsWith(".catalog."))) continue;
                     string dst = Path.Combine(to, name);
                     if (File.Exists(dst)) continue;
-                    File.Move(path, dst);
-                    moved++;
+                    // One file in use (a recording still open) stays for the next open; the others still move.
+                    try { File.Move(path, dst); moved++; }
+                    catch (IOException e) { Plugin.Log.LogWarning($"Replays: can't move {name} yet: {e.Message}"); }
                 }
                 if (moved > 0) Plugin.Log.LogInfo($"Replays: moved {moved} files from {from} to {to}");
             }

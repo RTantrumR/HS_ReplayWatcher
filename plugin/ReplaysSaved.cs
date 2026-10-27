@@ -288,9 +288,9 @@ namespace HsPuzzleBridge
 
         /// <summary>Ask for the folder of saved and imported games; then (if the folder is taken) go on.</summary>
         private static void PickSavedDir(Action then) =>
-            FolderPicker.Pick("Choose a folder for your saved and imported Hearthstone replays (outside the Hearthstone folder).",
+            FolderPicker.Pick("Choose a folder for your Hearthstone replays (outside the Hearthstone folder).",
                               "A folder window has opened (it may be behind the game). Choose a folder for your replays: " +
-                              "saved and imported games are kept there, about 1 MB each.",
+                              "recent, saved and imported games are kept there, about 1 MB each.",
                               path => { if (UseSavedDir(path)) then(); });
 
         /// <summary>A picked folder becomes the saved folder unless it is inside the Hearthstone folder (updates and

@@ -20,7 +20,8 @@ jump to any moment, step through a fight, or watch at up to x4.
   **Enter/Backspace** one step · **+/−** speed.
 - **Three lists**, switched with the arrows on the page's title: **Replays** (your last 5 to 50 games, set in
   **Settings**), **Saved** and **Imported**. The **star** on a card saves that game to a folder of your choice,
-  outside the Hearthstone folder, where it stays. Saved and Imported can be sorted by date, place, hero or
+  outside the Hearthstone folder, where it stays. Once that folder is chosen, your recent games are kept there
+  too (in `Recent`, beside `Saved` and `Imported`). Saved and Imported can be sorted by date, place, hero or
   length.
 
 ## Sharing replays
@@ -65,8 +66,8 @@ replays exactly as yours does.
 ## Uninstall
 
 Windows Settings → Apps → HS Replay Watcher → Uninstall. BepInEx is removed too, unless another mod still uses
-it or it was there before. Your recordings stay in `%LOCALAPPDATA%\HS Replay Watcher`, and saved and imported
-games in the folder you chose; delete those folders to remove them as well.
+it or it was there before. Your games stay in the folder you chose (or in `%LOCALAPPDATA%\HS Replay Watcher`
+if you never chose one); delete it to remove them as well.
 
 ## Troubleshooting
 
