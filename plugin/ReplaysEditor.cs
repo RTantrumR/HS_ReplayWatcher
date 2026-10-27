@@ -53,6 +53,7 @@ namespace HsPuzzleBridge
             {
                 new Param("HpX", "X", -10f, 80f, 0.25f), new Param("HpZ", "Y", -30f, 10f, 0.1f),
                 new Param("HpScale", "Size", 0.5f, 8f, 0.1f), new Param("HpGap", "Gap", -15f, 15f, 0.25f),
+                new Param("HpLockSize", "Lock size", 0.1f, 1.5f, 0.05f), new Param("HpLockZ", "Lock Y", -1f, 1f, 0.02f),
             } },
             new Tab { Name = "Trinkets", Values = new[]
             {

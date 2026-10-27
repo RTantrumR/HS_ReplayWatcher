@@ -226,6 +226,7 @@ namespace HsPuzzleBridge
                 PasteImport();
             HidePortraitNames();
             OpenTrinkets();
+            LockHeroPowers();
             UpdateSaved();
             if (_scroll == null) SetWheel(Layout.Current); // once the scrollable exists (the page's states build it)
             UpdateWheel();
@@ -265,6 +266,9 @@ namespace HsPuzzleBridge
             public float BgX = 38.8f, BgZ = -8.5f, BgW = 73.9f, BgH = 16.25f, Border = 2f;
             public float HeroX = 9.25f, HeroZ = -10.1f, HeroScale = 5.7f;
             public float HpX = 17.75f, HpZ = -4.85f, HpScale = 2.9f, HpGap = 5.5f;
+            // A game left without a hero power shows the hero's own, locked (ReplaysUi.LockedHp.cs): the padlock's
+            // width against the icon's, and its move up the screen in icon widths.
+            public float HpLockSize = 0.36f, HpLockZ = 0f;
             public float TrinketX = 17.75f, TrinketZ = -10.4f, TrinketScale = 2.9f, TrinketGap = 5.5f;
             public float NameX = 8.8f, NameZ = -14.4f, NameScale = 0.63f;
             public float StarX = 28.6f, StarZ = -1.4f, StarScale = 3.6f; // the save star (ReplaysSaved.cs): centre, its badge's height
@@ -422,6 +426,8 @@ namespace HsPuzzleBridge
             public MeshFilter Roster; // the stock row frame (collapsed): its mesh and material make the cropped plates
             public bool PortraitNameHidden;
             public bool TrinketsOpened;
+            public bool HpLocked; // no hero power left at the end: the hero's own is shown under a padlock
+            public Transform HpLock;
             public HandParts Hand; // the final hand's icon and cards (ReplaysUi.Hand.cs); null: an empty hand
         }
 
@@ -890,6 +896,7 @@ namespace HsPuzzleBridge
             parts.Minions = Find(root, "MinionParent");
             // On the stats page the slot's states show these when the game has them; our rows have no slot.
             parts.HeroPower = Show(Find(root, "HeroPower"), game.HeroPower != null);
+            parts.HpLocked = game.HeroPower != null && entry.HeroPowers.Count == 0;
             var dual = Show(Find(root, "Dual HeroPower"), game.DualHeroPower != null);
             parts.DualHeroPower = dual;
             parts.Trinket1 = Show(Find(root, "Trinket1"), game.Trinket1 != null);
@@ -1135,6 +1142,7 @@ namespace HsPuzzleBridge
         {
             Place(p.Hero, l.HeroX, l.HeroZ, new Vector3(l.HeroScale, 1f, l.HeroScale));
             Place(p.HeroPower, l.HpX, l.HpZ, Vector3.one * l.HpScale);
+            PlaceHpLock(p, l);
             // The gained hero power is the first one's child (stock: diagonally up-right); side by side instead.
             if (p.DualHeroPower != null && l.HpScale > 0f)
                 p.DualHeroPower.localPosition = new Vector3(l.HpGap / l.HpScale, 0f, 0f);
@@ -1356,7 +1364,7 @@ namespace HsPuzzleBridge
                 // the first two (an anomaly's), where a second hero power would be. Trinkets get the gold cost gem
                 // too (the stock page gives them none): every icon of the grid shows one, alike, and the row
                 // re-binds the second hero power's icon and hover card from this model anyway (seen 2026-10-15).
-                HeroPower = Card(e.HeroPowers, 0, SpellType.COIN_MANA_GEM),
+                HeroPower = Card(e.HeroPowers, 0, SpellType.COIN_MANA_GEM) ?? HeroOwnPower(e.Hero),
                 DualHeroPower = Card(e.HeroPowers, 1, SpellType.COIN_MANA_GEM),
                 Trinket1 = Card(e.Trinkets, 0, SpellType.COIN_MANA_GEM),
                 Trinket2 = Card(e.Trinkets, 1, SpellType.COIN_MANA_GEM),
