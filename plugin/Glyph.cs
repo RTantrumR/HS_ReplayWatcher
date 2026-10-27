@@ -96,6 +96,28 @@ namespace HsPuzzleBridge
             yield return Box(P(-0.44f, 0.33f), P(0.44f, 0.44f));
         }
 
+        /// <summary>A settings gear: eight teeth round a ring with an open centre. Shapes are convex, so the ring is a
+        /// band of quads and each tooth a trapezoid sunk into it.</summary>
+        public static IEnumerable<Vector2[]> Gear(Vector2 centre, float size)
+        {
+            const float hole = 0.16f, body = 0.35f, root = 0.31f, tip = 0.49f;
+            const int band = 40, teeth = 8;
+            Vector2 At(float r, float a) => centre + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (r * size);
+            const float turn = 2f * (float)System.Math.PI;
+            float step = turn / band;
+            for (int i = 0; i < band; i++)
+            {
+                float a0 = i * step, a1 = a0 + step * 1.02f; // a hair of overlap: no seams between the quads
+                yield return new[] { At(hole, a0), At(body, a0), At(body, a1), At(hole, a1) };
+            }
+            float baseHalf = 0.21f, tipHalf = 0.14f; // radians either side of a tooth's middle
+            for (int k = 0; k < teeth; k++)
+            {
+                float a = (k + 0.5f) * turn / teeth;
+                yield return new[] { At(root, a - baseHalf), At(tip, a - tipHalf), At(tip, a + tipHalf), At(root, a + baseHalf) };
+            }
+        }
+
         /// <summary>One colour throughout (a button label's), the face a little lighter at the top.</summary>
         public static Palette Plain(Color c)
         {
