@@ -280,9 +280,13 @@ namespace HsPuzzleBridge
             public float HpQuestShift = -3f; // the hover card moved right (row units) when it has them, so all three fit
             public float TrinketX = 17.75f, TrinketZ = -10.4f, TrinketScale = 2.9f, TrinketGap = 5.5f;
             public float NameX = 8.8f, NameZ = -14.4f, NameScale = 0.63f;
-            public float StarX = 28.6f, StarZ = -1.4f, StarScale = 3.6f; // the save star (ReplaysSaved.cs): centre, its badge's height
-            public float TrashScale = 1.8f; // an imported game's remove button, at the star's spot: its size
-            public float ShareX = 38.6f, ShareZ = -1.4f, ShareScale = 1.8f; // the share button
+            // The star and the share button stand the same distance from the place's text between them (measured
+            // 2026-10-28 at 1080p, 15.95 px a row unit: the star's badge reaches 11 px from its own centre and the
+            // arrow 13 px from its, so their centres are not the same distance out from the text). Move one and move
+            // the other by as much, or the text stops sitting evenly between them.
+            public float StarX = 29.15f, StarZ = -1.4f, StarScale = 3.6f; // the save star (ReplaysSaved.cs): centre, its badge's height
+            public float TrashScale = 1.8f; // an imported game's remove button, at the star's spot: its size (its lid as wide as the star's badge)
+            public float ShareX = 39.1f, ShareZ = -1.4f, ShareScale = 1.8f; // the share button
             public float PlaceX = 34f, PlaceZ = -2f, PlaceScale = 0.84f, PlaceTextLift = 0.6f; // the text above its tab's centre
             public float DateX = 60.95f, DateZ = -2.15f, DateScale = 0.76f;
             public float LengthX = 50.2f, LengthZ = -2.15f, LengthScale = 0.76f;
