@@ -10,12 +10,22 @@ namespace HsPuzzleBridge
     /// (Bacon_StatsFrame), where the single title plate and its wooden notch are painted: the frame's mesh can't be
     /// changed, so the panel is laid over the painted notch and covers it.
     ///
-    /// The frame's mesh doesn't show its texture evenly (the plate at 1.384 x 1.18 screen px per texture px at
-    /// 1080p, the notch below it stretched far more), so the panel is laid out in 1080p screen pixels around the
-    /// painted plate's middle (measured 2026-10-27; y down): the plates as painted (scaled together by TabScale
-    /// about their bottom), the panel's face from y 10 (over the painted plate's top) to the plates' bottom in the
-    /// bar's own grain, the notch's wood edge (78..90) and dark underside (90..112) below, and the texture's two
-    /// slanted ends from the bar's bottom (35) down to 112. The face's bands are clipped to the slants.
+    /// The frame's mesh shows its texture evenly over the whole bar (measured 2026-10-28 against the untouched
+    /// frame: 1.43 across by 1.45 down, screen px per texture px at 1080p), so the panel is laid out in the
+    /// texture's own rows around the painted plate's middle (y down): the bar from just inside its top highlight
+    /// (18) to the notch's top (40), as a patch mirrored from beside the plate, which covers the painted plate's
+    /// top and carries the bar's own bottom edge on; the panel's face in the bar's grain; and the notch's wood edge
+    /// (77..87) at the panel's own bottom. The plates sit as painted, scaled together by TabScale about the painted
+    /// plate's middle, and the texture's two slanted ends run the panel's height. The face's bands are clipped to
+    /// the slants.
+    ///
+    /// The panel carries no shadow of its own, by the owner's call (2026-10-28): a dark band the width of the bar
+    /// reads as a plate laid over the page. It ends instead where the painted notch's own shadow does (96), so its
+    /// wood covers that shadow — which the frame draws under the painted plate whatever we do — and meets the
+    /// page's torn top edge, which the notch's shadow hid anyway.
+    /// Laying the bands out in hand-measured screen pixels instead (as to 2026-10-27) squashed the panel by a
+    /// sixth: the plates' bolts came out oval, the bar's bottom edge was lost under the patch, a sliver of the
+    /// painted plate showed above it, and the dark underside reached a page-height too high.
     /// The title text is the middle tab's label; copies label the others. The shown view's label is in the title's
     /// colour, the others faded (darkened again on hover).
     /// </summary>
@@ -33,17 +43,14 @@ namespace HsPuzzleBridge
         private static readonly Vector2[] TabRightSlant =
             { new Vector2(660, 40), new Vector2(668, 40), new Vector2(651, 89), new Vector2(643, 89) };
         private const float TabSlantTopV = 40f, TabSlantBottomV = 89f;
-        // Band sources in the texture: the bar's rows for screen y 8..35 (its own 1.52 px per row), the bar's grain
-        // (stretched for the face), the notch's wood edge, the dark under the notch.
-        private const float TabBarV0 = 23f, TabBarV1 = 40f;
-        private static readonly Rect TabFaceSrc = new Rect(100, 20, 230, 18), TabEdgeSrc = new Rect(400, 77, 220, 12),
-                                     TabDarkSrc = new Rect(400, 92, 220, 18);
-        // On screen (1080p px from the painted plate's middle, y down): the bar patches' top, the slants' and the face's
-        // top (the bar's bottom), the plates' top (as painted: the size scales down from it) and the wood edge's top,
-        // the wood edge's bottom, the panel's bottom; the painted plate's half width (with a margin).
-        private const float TabBarTop = -36f, TabSlantTop = -10f, TabPlatesTop = -33f, TabPlatesBottom = 33f,
-                            TabEdgeBottom = 45f, TabBottom = 67f;
-        private const float TabPaintedHalfW = 210f; // 196 measured, from a middle the title only roughly marks
+        // The panel's bands, in the texture's own rows (y down): the bar patch's top, just inside the bar's top
+        // highlight (17..19), so the patch carries the highlight's tail on rather than cutting across the grain;
+        // the panel's bottom, where the painted notch's own shadow ends; and the wood edge's ten rows above it.
+        private const float TabBarTopV = 18f, TabBottomV = 96f, TabEdgeTopV = TabBottomV - 10f;
+        // Band sources in the texture: the bar's grain beside the plate (clean wood, no bolt, edge or lip: measured
+        // 2026-10-28 over the whole texture, which holds no taller one), and the notch's wood edge.
+        private static readonly Rect TabFaceSrc = new Rect(112, 20, 250, 18), TabEdgeSrc = new Rect(400, 77, 220, 10);
+        private const float TabPaintedHalfW = 210f; // 203 measured, from a middle the title only roughly marks
 
         private static readonly string[] TabNames = { "Recent", "Saved", "Imported" };
         private static Transform _tabFrame, _tabPanel;
@@ -144,7 +151,7 @@ namespace HsPuzzleBridge
 
         /// <summary>The panel's mesh and the tabs' hit boxes (in the frame's units), and the labels (beside the title's
         /// own place), from the layout: TabPx frame units per 1080p screen px, TabPlateSX/SY the painted plate's
-        /// screen px per texture px, TabScale the group's size (about the plates' bottom), TabShift its move right and
+        /// screen px per texture px, TabScale the group's size (about the painted plate's middle), TabShift its move right and
         /// TabGap between the plates (screen px), TabX/TabZ the title's offset from the painted plate's middle (screen
         /// px, right and down), TabLift above the frame (frame units).</summary>
         private static void PlaceTabs(Layout l)
@@ -182,53 +189,74 @@ namespace HsPuzzleBridge
                 for (int i = 1; i + 1 < poly.Count; i++) { tris.Add(start); tris.Add(start + i); tris.Add(start + i + 1); }
             }
 
-            // The plates: as painted (sx, sy screen px per texture px), scaled by s about their bottom.
-            float s = l.TabScale, sx = l.TabPlateSX * s, sy = l.TabPlateSY * s;
+            // Where a texture row sits (screen px from the painted plate's middle, y down), at the frame's own
+            // scale: every band then lands on the row the frame itself draws there.
+            float fy = l.TabPlateSY;
+            float Y(float v) => (v - TabPlateV) * fy;
+            float barTop = Y(TabBarTopV), faceTop = Y(TabSlantTopV), edgeTop = Y(TabEdgeTopV), bottom = Y(TabBottomV);
+            // The plates: as painted (sx, sy screen px per texture px), scaled by s about the painted plate's middle.
+            float s = l.TabScale, sx = l.TabPlateSX * s, sy = fy * s;
             float plateW = (TabPlateRight - TabPlateLeft) * sx, pitch = plateW + l.TabGap * s;
-            float plateMidY = TabPlatesTop + (TabPlateV - TabPlateTopV) * sy;
             Vector2 PlateAt(Vector2 t, int slot) =>
-                new Vector2(l.TabShift + slot * pitch + (t.x - TabPlateU) * sx, plateMidY + (t.y - TabPlateV) * sy);
-            // The slanted ends: the texture's edges, kept at the outer plates' sides as painted, stretched from the
-            // bar's bottom to the panel's bottom.
-            float slantK = (TabBottom - TabSlantTop) / (TabSlantBottomV - TabSlantTopV);
+                new Vector2(l.TabShift + slot * pitch + (t.x - TabPlateU) * sx, (t.y - TabPlateV) * sy);
+            // The slanted ends: the texture's edges, kept at the outer plates' sides as painted, run the panel's own
+            // height (a touch longer than the notch's, which ends where its shadow began).
+            float slantK = (bottom - faceTop) / (TabSlantBottomV - TabSlantTopV);
             float leftEdge = PlateAt(new Vector2(TabPlateLeft, 0f), -1).x, rightEdge = PlateAt(new Vector2(TabPlateRight, 0f), 1).x;
             Vector2 SlantAt(Vector2 t, bool left) =>
                 new Vector2((left ? leftEdge : rightEdge) + (t.x - (left ? TabPlateLeft : TabPlateRight)) * sx,
-                            TabSlantTop + (t.y - TabSlantTopV) * slantK);
+                            faceTop + (t.y - TabSlantTopV) * slantK);
             // The lines the face's bands keep inside: each slant's middle (straight up above its top).
-            Vector2 LMid(float y) => Vector2.Lerp(Vector2.Lerp(SlantAt(TabLeftSlant[0], true), SlantAt(TabLeftSlant[1], true), 0.5f),
-                                                  Vector2.Lerp(SlantAt(TabLeftSlant[3], true), SlantAt(TabLeftSlant[2], true), 0.5f),
-                                                  Mathf.Clamp01((y - TabSlantTop) / (TabBottom - TabSlantTop)));
-            Vector2 RMid(float y) => Vector2.Lerp(Vector2.Lerp(SlantAt(TabRightSlant[0], false), SlantAt(TabRightSlant[1], false), 0.5f),
-                                                  Vector2.Lerp(SlantAt(TabRightSlant[3], false), SlantAt(TabRightSlant[2], false), 0.5f),
-                                                  Mathf.Clamp01((y - TabSlantTop) / (TabBottom - TabSlantTop)));
+            float Down(float y) => Mathf.Max(0f, (y - faceTop) / (bottom - faceTop));
+            Vector2 LMid(float y) => Vector2.LerpUnclamped(Vector2.Lerp(SlantAt(TabLeftSlant[0], true), SlantAt(TabLeftSlant[1], true), 0.5f),
+                                                           Vector2.Lerp(SlantAt(TabLeftSlant[3], true), SlantAt(TabLeftSlant[2], true), 0.5f),
+                                                           Down(y));
+            Vector2 RMid(float y) => Vector2.LerpUnclamped(Vector2.Lerp(SlantAt(TabRightSlant[0], false), SlantAt(TabRightSlant[1], false), 0.5f),
+                                                           Vector2.Lerp(SlantAt(TabRightSlant[3], false), SlantAt(TabRightSlant[2], false), 0.5f),
+                                                           Down(y));
             // A line's x at a height (straight up above the slants' top): bands are split there, so each clip is
             // against one straight line.
             float XOn(Func<float, Vector2> line, float y)
             {
-                Vector2 a = line(TabSlantTop), c = line(TabBottom);
-                return y <= TabSlantTop ? a.x : Mathf.LerpUnclamped(a.x, c.x, (y - a.y) / (c.y - a.y));
+                Vector2 a = line(faceTop), c = line(bottom);
+                return y <= faceTop ? a.x : Mathf.LerpUnclamped(a.x, c.x, (y - a.y) / (c.y - a.y));
             }
-            // A band of the face, tiled along the panel from a source strip (screen px per texture px across: sx).
-            void Band(float y0, float y1, Rect src, float lift, float xFrom = float.MinValue, float xTo = float.MaxValue)
+            // A band across the panel, tiled from a source strip at the texture's own scale across (sx), rows vTop
+            // to vBottom: every other tile is mirrored, so the grain meets itself at each join, and the tiles sit on
+            // one grid whatever the band, so bands stacked down the panel line up. The ends go to the slants, where
+            // the clipping takes the tiles that fall outside.
+            void Band(float y0, float y1, Rect src, float vTop, float vBottom, float lift)
             {
-                float x0 = Mathf.Max(xFrom, Mathf.Min(LMid(y0).x, LMid(y1).x) - 2f);
-                float x1 = Mathf.Min(xTo, Mathf.Max(RMid(y0).x, RMid(y1).x) + 2f);
+                float x1 = Mathf.Max(RMid(y0).x, RMid(y1).x) + 2f;
                 float tileW = src.width * sx;
-                for (float x = x0; x < x1; x += tileW)
+                float mid = (y0 + y1) / 2f; // a band is all above or all below the slants' top
+                int j = Mathf.FloorToInt((Mathf.Min(LMid(y0).x, LMid(y1).x) - 2f - l.TabShift) / tileW);
+                for (float x = l.TabShift + j * tileW; x < x1; x += tileW, j++)
                 {
-                    float w = Mathf.Min(tileW, x1 - x), tw = w / sx;
+                    float uA = (j & 1) == 0 ? src.xMin : src.xMax, uB = (j & 1) == 0 ? src.xMax : src.xMin;
                     var poly = new List<TabVert>
                     {
-                        new TabVert(new Vector2(x, y0), new Vector2(src.xMin, src.yMin)),
-                        new TabVert(new Vector2(x + w, y0), new Vector2(src.xMin + tw, src.yMin)),
-                        new TabVert(new Vector2(x + w, y1), new Vector2(src.xMin + tw, src.yMax)),
-                        new TabVert(new Vector2(x, y1), new Vector2(src.xMin, src.yMax)),
+                        new TabVert(new Vector2(x, y0), new Vector2(uA, vTop)),
+                        new TabVert(new Vector2(x + tileW, y0), new Vector2(uB, vTop)),
+                        new TabVert(new Vector2(x + tileW, y1), new Vector2(uB, vBottom)),
+                        new TabVert(new Vector2(x, y1), new Vector2(uA, vBottom)),
                     };
-                    float mid = (y0 + y1) / 2f; // a band is all above or all below the slants' top
-                    poly = ClipTab(poly, p => p.x - XOn(LMid, mid <= TabSlantTop ? TabSlantTop : p.y));
-                    poly = ClipTab(poly, p => XOn(RMid, mid <= TabSlantTop ? TabSlantTop : p.y) - p.x);
+                    poly = ClipTab(poly, p => p.x - XOn(LMid, mid <= faceTop ? faceTop : p.y));
+                    poly = ClipTab(poly, p => XOn(RMid, mid <= faceTop ? faceTop : p.y) - p.x);
                     Add(poly, lift);
+                }
+            }
+            // The face: the strip laid down the panel at the texture's own scale too, every other one flipped so the
+            // grain meets itself there as well. One strip stretched over the whole face came out smeared, the grain
+            // washed out of it (the owner, 2026-10-28); the texture holds no wood band tall enough to fill it whole.
+            void Face(float y0, float y1, Rect src, float lift)
+            {
+                float tileH = src.height * fy;
+                for (int k = 0; y0 + k * tileH < y1 - 0.5f; k++)
+                {
+                    float a = y0 + k * tileH, b = Mathf.Min(y1, a + tileH), rows = (b - a) / fy;
+                    bool flip = (k & 1) != 0;
+                    Band(a, b, src, flip ? src.yMax : src.yMin, flip ? src.yMax - rows : src.yMin + rows, lift);
                 }
             }
             List<TabVert> Piece(Vector2[] pts, Func<Vector2, Vector2> place)
@@ -249,19 +277,18 @@ namespace HsPuzzleBridge
                 float U(float x) => 2f * (TabPlateU + mirrorAt / barSx) - (TabPlateU + x / barSx);
                 Add(new List<TabVert>
                 {
-                    new TabVert(new Vector2(x0, TabBarTop), new Vector2(U(x0), TabBarV0)),
-                    new TabVert(new Vector2(x1, TabBarTop), new Vector2(U(x1), TabBarV0)),
-                    new TabVert(new Vector2(x1, TabSlantTop), new Vector2(U(x1), TabBarV1)),
-                    new TabVert(new Vector2(x0, TabSlantTop), new Vector2(U(x0), TabBarV1)),
+                    new TabVert(new Vector2(x0, barTop), new Vector2(U(x0), TabBarTopV)),
+                    new TabVert(new Vector2(x1, barTop), new Vector2(U(x1), TabBarTopV)),
+                    new TabVert(new Vector2(x1, faceTop), new Vector2(U(x1), TabSlantTopV)),
+                    new TabVert(new Vector2(x0, faceTop), new Vector2(U(x0), TabSlantTopV)),
                 }, lift);
             }
             // The whole painted top, in two halves (the plate's cut corners leave its corners showing otherwise); they
             // meet in the middle, under the middle plate.
             BarPatch(-TabPaintedHalfW, 0f, -TabPaintedHalfW);
             BarPatch(0f, TabPaintedHalfW, TabPaintedHalfW);
-            Band(TabSlantTop, TabPlatesBottom, TabFaceSrc, lift);
-            Band(TabPlatesBottom, TabEdgeBottom, TabEdgeSrc, lift);
-            Band(TabEdgeBottom, TabBottom, TabDarkSrc, lift);
+            Face(faceTop, edgeTop, TabFaceSrc, lift);
+            Band(edgeTop, bottom, TabEdgeSrc, TabEdgeSrc.yMin, TabEdgeSrc.yMax, lift);
             Add(Piece(TabLeftSlant, p => SlantAt(p, true)), lift * 1.5f);
             Add(Piece(TabRightSlant, p => SlantAt(p, false)), lift * 1.5f);
             for (int i = -1; i <= 1; i++)

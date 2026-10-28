@@ -295,12 +295,13 @@ namespace HsPuzzleBridge
             // of the title), their lift, width (world units), and the turn of the dropdown's downward arrow.
             public float TitleArrowX = 1.39f, TitleArrowShift = 0.11f, TitleArrowZ = 0f, TitleArrowSize = 2.6f, TitleArrowRot = 90f;
             // The views' tabs instead (ReplaysUi.Tabs.cs), in 1080p screen px unless said: frame units per px; the
-            // painted plate's px per texture px across and down; the title's offset from the painted plate's middle
-            // (right, down); the group's size (about the plates' bottom), move right (the painted plate sits ~23 px
-            // left of the middle between the frame's corner posts) and gap between plates; the panel's lift above the
-            // frame (frame units); the other tabs' label colour ("" = the title's, faded).
-            public float TabPx = 0.01066f, TabPlateSX = 1.384f, TabPlateSY = 1.18f, TabX = 0f, TabZ = 0f;
-            public float TabScale = 0.94f, TabShift = 23f, TabGap = 28f, TabLift = 0.03f;
+            // painted plate's px per texture px across and down (the frame's own scale: the whole panel is laid out
+            // by it, so measure both against the untouched frame, never by eye); the title's offset from the painted
+            // plate's middle (right, down); the group's size (about the painted plate's middle), move right (the
+            // painted plate sits ~23 px left of the middle between the frame's corner posts) and gap between plates;
+            // the panel's lift above the frame (frame units); the other tabs' label colour ("" = the title's, faded).
+            public float TabPx = 0.01066f, TabPlateSX = 1.43f, TabPlateSY = 1.45f, TabX = 0f, TabZ = 0f;
+            public float TabScale = 0.91f, TabShift = 23f, TabGap = 28f, TabLift = 0.03f;
             public string TabIdleColor = "";
             // The strip above the rows (ReplaysSettings.cs): the rows start ListTop lower; its parts in the first row's
             // units: the sort dropdown at its left (saved and imported), the view's size (or the empty list's line)
