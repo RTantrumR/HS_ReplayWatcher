@@ -7,7 +7,7 @@ jump to any moment, step through a fight, or watch at up to x4.
 **Beta.** Expect rough edges, and please report them: the bug button opens a
 [bug report](../../issues) with the details already filled in.
 
-![The Replays page: one card per game with hero, hero powers, trinkets, final board, place and length, and one game's final hand opened under its card](images/replays-page.webp)
+![The Replays page: the Recent tab, one card per game with hero, hero powers, trinkets, final board and hand, place, date and length](images/replays-page.webp)
 
 ![A replay in the shop, with the replay bar and its timeline at the top of the screen](images/replay-bar.webp)
 
@@ -26,6 +26,8 @@ jump to any moment, step through a fight, or watch at up to x4.
 - **Hover a card's icons** to read them: hero powers, trinkets and quests as they ended the game, counters and
   grown numbers included. A hero power a quest traded away shows with that quest and its reward.
 
+![A hero power hovered on a card: Whodunit? beside the quest it was traded for, Round Up the Suspects, and that quest's reward, Temporal Tampering](images/hover-cards.webp)
+
 ## Sharing replays
 
 - **Send:** click the arrow next to a game's place. The game is copied to your clipboard as a file: press
@@ -33,8 +35,10 @@ jump to any moment, step through a fight, or watch at up to x4.
 - **Receive:** copy the file you got (in Explorer) and press **Ctrl+V** on the Replays page, or use **Import**
   in the Imported list, or drop it into the `Imported` folder. Import also takes a `Power.log` from Hearthstone's
   `Logs` folder and turns its Battlegrounds games into replays.
-- **Remove** an imported game with the bin next to its star. **Settings** can turn off the "are you sure"
+- **Remove** an imported game with the bin on its card. **Settings** can turn off the "are you sure"
   prompts for removing games.
+
+![The Imported tab: games imported from shared files and from a Power.log, each with a bin in place of its star](images/replays-imported.webp)
 
 A shared file has your account's session passwords and your PC's name and device id removed. An imported file
 is checked line by line before the watcher uses it, and only a clean copy rebuilt from it is kept.
