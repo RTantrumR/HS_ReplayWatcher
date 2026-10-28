@@ -6,97 +6,148 @@ using UnityEngine;
 namespace HsPuzzleBridge
 {
     /// <summary>
-    /// Saved games: a folder the player picks outside the Hearthstone folder (Library.SavedDir), so game updates,
-    /// repairs and reinstalls never touch it, listed by the page's second view.
-    /// - The switch: a button at the strip's left (the lobby's stats button, as Watch is) moves the page round its
-    ///   views: recent, saved, and the games converted from Power.log (Library.LogsDir); it names the next one, the
-    ///   title the shown one; the "keep the last" slider shows only for recent ones.
+    /// Saved and imported games: a folder the player picks outside the Hearthstone folder (Library.SavedDir), so game
+    /// updates, repairs and reinstalls never touch it; its Saved and Imported folders are the page's second and third
+    /// views (<see cref="ReplayLibrary.SplitSavedDir"/>).
+    /// - The views (recent, saved, and imported: other players' games, and those converted from Power.log) are tabs
+    ///   in the page's title (ReplaysUi.Tabs.cs). If the page's frame isn't as expected, an arrow on each side of the
+    ///   title (the Options menu's dropdown arrow, turned to point sideways) goes round them instead, the title naming
+    ///   the shown one.
     /// - The star: each portrait's own favourite badge (FavoriteIconParent, the BG skin collection's heart) with
-    ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on every recent and
-    ///   saved row: full for a saved game, greyed otherwise; clicking it saves or unsaves. Log games have none
-    ///   (saving one isn't offered).
-    /// - Saving copies the recording into the saved folder (the first time, the folder is asked for); the game stays
-    ///   in the recent list until the limit takes it.
-    /// - Unsaving asks first (<see cref="ConfirmPopup"/>): still in the recent list, the saved copy is removed;
-    ///   otherwise it moves back to the recent list if that has room, else it is deleted.
+    ///   the game's StarIcon on it, moved out of the portrait into the place's tab; shown on recent and saved rows:
+    ///   full for a saved game, greyed otherwise; clicking it saves or unsaves. Imported rows have the trash bin
+    ///   there instead (the player has the file already; games starred before that stay saved).
+    /// - Saving copies the recording (a recent or an imported one) into the saved folder (the first time, the folder
+    ///   is asked for); the game stays in its list (a recent one until the limit takes it).
+    /// - Unsaving asks first (<see cref="ConfirmPopup"/>; the settings can turn the asking off): still in the recent
+    ///   or the imported list, the saved copy is removed; one saved from the imported list (FromImportedFile) moves
+    ///   back there; otherwise it moves back to the recent list if that has room, else it is deleted.
     /// </summary>
     internal static partial class ReplaysUi
     {
-        private static Transform _switch;
-        private static UIBButton _switchButton;
-        private static RowText _emptyText, _logsEmptyText;
+        private static Transform _arrowPrev, _arrowNext;
+        private static float _arrowUnit; // the arrow's world width at scale 1
+        private static RowText _emptyText, _importedEmptyText;
 
         private static string CurrentTitle => ReplayLibrary.Current.Title;
 
-        private static void CreateSwitch()
+        /// <summary>The views' tabs in the title (ReplaysUi.Tabs.cs; the arrows beside the title if the page's frame
+        /// isn't as expected), and the empty lists' lines.</summary>
+        private static void CreateViewControls()
         {
-            if (_strip == null || _statsButton == null || _switch != null) return;
-            var button = WidgetInstance.Create(AssetOf(_statsButton));
-            button.name = "ViewSwitch";
-            button.transform.SetParent(_strip, false);
-            button.gameObject.layer = _strip.gameObject.layer;
-            _switch = button.transform;
-            button.RegisterReadyListener(_ =>
-            {
-                StripReleasedActions(button.gameObject);
-                _switchButton = button.GetComponentInChildren<UIBButton>(true);
-                _switchButton.AddEventListener(UIEventType.RELEASE, e => ReplayLibrary.Show(ReplayLibrary.Next));
-                ShowView();
-            });
+            if (_strip == null || _arrowPrev != null || HasTabs) return;
+            bool tabs;
+            try { tabs = CreateTabs(); }
+            catch (Exception e) { Plugin.Log.LogWarning("Replays tabs: " + e); tabs = false; }
+            if (!tabs) CreateViewArrows();
             if (_stripTextSource != null)
             {
                 // The empty saved list's line: another copy of the row's name text, where the slider is.
                 _emptyText = NewText(_stripTextSource, "SavedEmpty", "No saved replays yet. The star by a game's portrait saves it here.", _strip);
                 ShowStripText(_emptyText, false);
-                _logsEmptyText = NewText(_stripTextSource, "LogsEmpty", "No log replays yet. Convert a Power.log with hsserver.powerlog.", _strip);
-                ShowStripText(_logsEmptyText, false);
+                _importedEmptyText = NewText(_stripTextSource, "ImportedEmpty",
+                                             "No imported replays yet. Import shared replays or a Power.log, or paste them here with Ctrl+V.", _strip);
+                ShowStripText(_importedEmptyText, false);
             }
-            PlaceSwitch(Layout.Current);
+            PlaceViewControls(Layout.Current);
         }
 
-        private static void PlaceSwitch(Layout l)
+        private static void CreateViewArrows()
         {
-            if (_switch != null && _statsButton != null)
+            var source = OptionsDropdown();
+            var arrow = source != null ? source.m_button : null;
+            if (arrow != null && _title != null)
             {
-                _switch.localPosition = new Vector3(l.SwitchX, 1f, l.SwitchZ);
-                _switch.rotation = _statsButton.transform.rotation;
-                float worldScale = _statsButton.transform.lossyScale.x * l.SwitchScale;
-                _switch.localScale = Vector3.one * (worldScale / Mathf.Abs(_strip.lossyScale.x));
+                _arrowPrev = ViewArrow(arrow, "ViewPrev", () => ReplayLibrary.Show(ReplayLibrary.Prev));
+                _arrowNext = ViewArrow(arrow, "ViewNext", () => ReplayLibrary.Show(ReplayLibrary.Next));
             }
-            foreach (var empty in new[] { _emptyText, _logsEmptyText })
-                if (empty != null)
-                    PlaceStripText(empty, l.SliderX, l.SliderZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center);
+            else Plugin.Log.LogWarning("Replays: no dropdown arrow in the Options menu, or no title; the views have no arrows");
         }
 
-        /// <summary>The switch's text (the next view), the slider (recent only) and the empty lines (saved or logs, none
-        /// yet).</summary>
+        /// <summary>A copy of the dropdown's arrow button under the title's frame, clicked through its UIBButton.</summary>
+        private static Transform ViewArrow(UIBButton source, string name, Action onRelease)
+        {
+            var go = UnityEngine.Object.Instantiate(source.gameObject, _title.transform.parent, false);
+            go.name = name;
+            go.SetActive(true);
+            LayerUtils.SetLayer(go, _title.gameObject.layer);
+            var b = go.GetComponent<UIBButton>() ?? go.GetComponentInChildren<UIBButton>(true);
+            b?.AddEventListener(UIEventType.RELEASE, e => onRelease());
+            go.transform.localScale = Vector3.one;
+            go.transform.rotation = _title.transform.rotation;
+            if (_arrowUnit <= 0f)
+            {
+                var size = RendererBounds(go).size;
+                _arrowUnit = Mathf.Max(size.x, size.z);
+            }
+            return go.transform;
+        }
+
+        /// <summary>The arrows TitleArrowX of the title's frame units either side of the title and TitleArrowShift to
+        /// the right (screen), TitleArrowSize world units wide, the dropdown's downward arrow turned TitleArrowRot
+        /// degrees in the page's plane each way.</summary>
+        private static void PlaceViewControls(Layout l)
+        {
+            PlaceTabs(l);
+            if (_arrowPrev != null && _arrowNext != null && _title != null && _arrowUnit > 0f)
+            {
+                var t = _title.transform;
+                foreach (var (arrow, side) in new[] { (_arrowPrev, -1f), (_arrowNext, 1f) })
+                {
+                    arrow.localPosition = t.localPosition + new Vector3(side * l.TitleArrowX, 0.1f, l.TitleArrowZ);
+                    arrow.rotation = Quaternion.AngleAxis(-side * l.TitleArrowRot, Vector3.up) * t.rotation;
+                    arrow.localScale = Vector3.one * (l.TitleArrowSize / _arrowUnit); // _arrowUnit: its width at local scale 1
+                    arrow.localPosition += t.parent.InverseTransformDirection(Vector3.right) * l.TitleArrowShift;
+                }
+                // The frame may be turned: the one drawn further left is "before".
+                if (_arrowPrev.position.x > _arrowNext.position.x)
+                {
+                    var p = _arrowPrev.localPosition;
+                    _arrowPrev.localPosition = _arrowNext.localPosition;
+                    _arrowNext.localPosition = p;
+                    var r = _arrowPrev.rotation;
+                    _arrowPrev.rotation = _arrowNext.rotation;
+                    _arrowNext.rotation = r;
+                }
+            }
+            foreach (var empty in new[] { _emptyText, _importedEmptyText })
+                if (empty != null)
+                    PlaceStripText(empty, l.SizeX, l.SizeZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center);
+        }
+
+        /// <summary>The view's size, or the empty lines (saved or imported, none yet), and its buttons.</summary>
         private static void ShowView()
         {
             var view = ReplayLibrary.Current;
-            bool recent = view == ReplayLibrary.Recent;
-            _switchButton?.SetText(ReplayLibrary.Next.Label);
-            if (_keepSliderT != null) _keepSliderT.gameObject.SetActive(recent);
-            ShowStripText(_keepLabel, recent);
-            ShowStripText(_keepValue, recent);
-            ShowStripText(_emptyText, view == ReplayLibrary.Saved && ReplayLibrary.Entries.Count == 0);
-            ShowStripText(_logsEmptyText, view == ReplayLibrary.Logs && ReplayLibrary.Entries.Count == 0);
+            string size = ViewSize(view);
+            if (_sizeText != null && size != null) _sizeText.Text.Text = size;
+            ShowStripText(_sizeText, size != null);
+            ShowStripText(_emptyText, size == null && view == ReplayLibrary.Saved);
+            ShowStripText(_importedEmptyText, size == null && view == ReplayLibrary.Imported);
+            if (_importButton != null) _importButton.gameObject.SetActive(view == ReplayLibrary.Imported);
+            ShowSortButton();
             PlaceStrip(Layout.Current); // the shown texts' plates are sized from the drawn text
-            PlaceSwitch(Layout.Current);
+            PlaceViewControls(Layout.Current);
         }
 
         private static ReplayLibrary.View _shownView;
-        private static int _shownCount = -1;
+        private static int _shownVersion = -1;
 
         /// <summary>Per frame: the view's pieces when the view or its rows change, and every row's heart.</summary>
         private static void UpdateSaved()
         {
-            if (_shownView != ReplayLibrary.Current || _shownCount != ReplayLibrary.Entries.Count)
+            if (_shownView != ReplayLibrary.Current || _shownVersion != ReplayLibrary.Current.Version)
             {
                 _shownView = ReplayLibrary.Current;
-                _shownCount = ReplayLibrary.Entries.Count;
+                _shownVersion = ReplayLibrary.Current.Version;
                 ShowView();
             }
-            foreach (var p in AllParts) UpdateHeart(p);
+            foreach (var p in AllParts)
+            {
+                UpdateHeart(p);
+                UpdateRowButtons(p);
+            }
+            PlaceStripIcons();
         }
 
         // ------------------------------------------------------------------ stars
@@ -152,17 +203,11 @@ namespace HsPuzzleBridge
 
         /// <summary>The portrait's favourite badge, on, with the star: it loads with the portrait (and its own states
         /// hide it), so it is looked for and switched on every frame. Taken out of the portrait onto the card, where
-        /// the layout puts it (StarX/StarZ, its badge StarScale tall): by default at the left end of the place's tab.</summary>
+        /// the layout puts it (StarX/StarZ, its badge StarScale tall): by default at the left end of the place's tab.
+        /// Imported rows have none (taken out of the portrait all the same, then hidden).</summary>
         private static void UpdateHeart(RowParts p)
         {
             if (p.Root == null || p.Hero == null) return;
-            if (p.Set.View == ReplayLibrary.Logs)
-            {
-                // No star on a log game: the badge is kept off (and gets no click listener).
-                if (p.Heart == null) p.Heart = Find(p.Hero, "FavoriteIconParent");
-                if (p.Heart != null && p.Heart.gameObject.activeSelf) p.Heart.gameObject.SetActive(false);
-                return;
-            }
             if (p.Heart == null)
             {
                 p.Heart = Find(p.Hero, "FavoriteIconParent");
@@ -173,7 +218,11 @@ namespace HsPuzzleBridge
                 {
                     var element = icon.GetComponent<PegUIElement>() ?? icon.gameObject.AddComponent<PegUIElement>();
                     string id = p.Id;
+                    var parts = p;
                     element.AddEventListener(UIEventType.RELEASE, e => OnHeart(id));
+                    // Hovered, an unsaved star shows gold, as the row's other buttons take their colour.
+                    element.AddEventListener(UIEventType.ROLLOVER, e => parts.HeartHover = true);
+                    element.AddEventListener(UIEventType.ROLLOUT, e => parts.HeartHover = false);
                 }
                 p.Heart.SetParent(p.Root, true);
                 p.HeartY = p.Heart.localPosition.y;
@@ -181,6 +230,12 @@ namespace HsPuzzleBridge
                 var b = p.HeartIcon != null ? p.HeartIcon.bounds : default;
                 float h = Mathf.Abs(p.Root.InverseTransformVector(b.size).z);
                 if (h > 0.001f) p.HeartUnit /= h; // the badge's scale per row unit of height
+            }
+            // An imported game has no star: it came as a file the player already has; its trash bin takes the spot.
+            if (p.Set.View == ReplayLibrary.Imported)
+            {
+                if (p.Heart.gameObject.activeSelf) p.Heart.gameObject.SetActive(false);
+                return;
             }
             var l = Layout.Current;
             p.Heart.localPosition = new Vector3(l.StarX, p.HeartY, l.StarZ);
@@ -194,7 +249,7 @@ namespace HsPuzzleBridge
             if (!p.Heart.gameObject.activeSelf) p.Heart.gameObject.SetActive(true);
             if (p.HeartIcon == null) return;
             if (!p.HeartIcon.gameObject.activeSelf) p.HeartIcon.gameObject.SetActive(true);
-            bool saved = p.Set.View == ReplayLibrary.Saved || ReplayLibrary.SavedIds.Contains(p.Id);
+            bool saved = p.Set.View == ReplayLibrary.Saved || ReplayLibrary.SavedIds.Contains(p.Id) || p.HeartHover;
             if (p.HeartSaved == saved) return;
             p.HeartSaved = saved;
             var block = new MaterialPropertyBlock();
@@ -217,16 +272,18 @@ namespace HsPuzzleBridge
         {
             if (!ReplayLibrary.HasSavedDir)
             {
-                FolderPicker.Pick("Choose the folder for your saved Hearthstone replays (outside the Hearthstone folder).",
-                                  path => { if (UseSavedDir(path)) Save(id); });
+                PickSavedDir(() => Save(id));
                 return;
             }
-            string src = ReplayLibrary.RecordingIn(Plugin.Recordings, id);
+            string recent = ReplayLibrary.RecordingIn(Plugin.Recordings, id);
+            string src = recent ?? ReplayLibrary.RecordingIn(ReplayLibrary.ImportedDir, id);
             if (src == null) { Plugin.Log.LogWarning("Replays: no recording to save for " + id); return; }
             string dst = Path.Combine(ReplayLibrary.SavedDir, Path.GetFileName(src));
             try
             {
+                Directory.CreateDirectory(ReplayLibrary.SavedDir);
                 if (!File.Exists(dst)) File.Copy(src, dst);
+                if (recent == null) SetFromImported(id, true);
                 Plugin.Log.LogInfo($"Replays: saved {id} to {ReplayLibrary.SavedDir}");
             }
             catch (Exception e)
@@ -239,6 +296,13 @@ namespace HsPuzzleBridge
             ReplayLibrary.SetSavedRow(id, true);
             ReplayServerProcess.ScanCatalog(); // lists the copy in the saved folder's own catalog (from the cache)
         }
+
+        /// <summary>Ask for the folder of saved and imported games; then (if the folder is taken) go on.</summary>
+        private static void PickSavedDir(Action then) =>
+            FolderPicker.Pick("Choose a folder for your Hearthstone replays (outside the Hearthstone folder).",
+                              "A folder window has opened (it may be behind the game). Choose a folder for your replays: " +
+                              "recent, saved and imported games are kept there, about 1 MB each.",
+                              path => { if (UseSavedDir(path)) then(); });
 
         /// <summary>A picked folder becomes the saved folder unless it is inside the Hearthstone folder (updates and
         /// repairs can wipe that) or is the recent games' folder.</summary>
@@ -260,11 +324,12 @@ namespace HsPuzzleBridge
             }
             if (key == Norm(Plugin.Logs))
             {
-                Alert("Choose another folder", "That is where the log replays are kept. Please choose another folder.");
+                Alert("Choose another folder", "That is where converted Power.log games wait to be imported. Please choose another folder.");
                 return false;
             }
             Plugin.SavedDir.Value = full;
-            Plugin.Log.LogInfo("Replays: saved games go to " + full);
+            Plugin.Log.LogInfo("Replays: saved and imported games go to " + full);
+            ReplayLibrary.SplitSavedDir();
             return true;
         }
 
@@ -279,20 +344,73 @@ namespace HsPuzzleBridge
             string recentDir = Plugin.Recordings;
             if (ReplayLibrary.RecentIds.Contains(id) && ReplayLibrary.RecordingIn(recentDir, id) != null)
             {
-                ConfirmPopup.Ask("Remove from saved?", "The saved copy will be removed. The game stays in your recent replays.",
-                                 "Remove", () => AfterUnsave(id, () => File.Delete(saved)));
+                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?",
+                          "The saved copy will be removed. The game stays in your recent replays.",
+                          "Remove", () => AfterUnsave(id, () => File.Delete(saved)));
+            }
+            else if (ReplayLibrary.RecordingIn(ReplayLibrary.ImportedDir, id) != null)
+            {
+                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?",
+                          "The saved copy will be removed. The game stays in your imported replays.",
+                          "Remove", () => AfterUnsave(id, () => File.Delete(saved)));
+            }
+            else if (FromImported(id))
+            {
+                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?", "The replay will be moved back to your imported replays.",
+                          "Remove", () => AfterUnsave(id, () =>
+                          {
+                              Directory.CreateDirectory(ReplayLibrary.ImportedDir);
+                              File.Move(saved, Path.Combine(ReplayLibrary.ImportedDir, Path.GetFileName(saved)));
+                          }));
             }
             else if (ReplayLibrary.RecentIds.Count >= Plugin.KeepGames.Value)
             {
-                ConfirmPopup.Ask("Delete this replay?",
-                                 $"Your recent replays are full ({Plugin.KeepGames.Value} games), so this replay will be deleted.",
-                                 "Delete", () => AfterUnsave(id, () => File.Delete(saved)));
+                AskUnless(Plugin.NoAskRemove.Value && Plugin.NoAskDelete.Value, "Delete this replay?",
+                          $"Your recent replays are full ({Plugin.KeepGames.Value} games), so this replay will be deleted.",
+                          "Delete", () => AfterUnsave(id, () => File.Delete(saved)));
             }
             else
             {
-                ConfirmPopup.Ask("Remove from saved?", "The replay will be moved back to your recent replays.",
-                                 "Remove", () => AfterUnsave(id, () => File.Move(saved, Path.Combine(recentDir, Path.GetFileName(saved)))));
+                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?", "The replay will be moved back to your recent replays.",
+                          "Remove", () => AfterUnsave(id, () => File.Move(saved, Path.Combine(recentDir, Path.GetFileName(saved)))));
             }
+        }
+
+        /// <summary>Ask first (<see cref="ConfirmPopup"/>), unless the settings say not to: then just do it.</summary>
+        private static void AskUnless(bool skip, string header, string text, string action, Action confirmed)
+        {
+            if (skip) confirmed();
+            else ConfirmPopup.Ask(header, text, action, confirmed);
+        }
+
+        // The saved games that came from the imported list (one id a line, in the saved folder): unsaved once they
+        // are gone from there, they go back to it, not to the recent list.
+        private const string FromImportedFile = ".from_imported.txt";
+
+        private static bool FromImported(string id)
+        {
+            try
+            {
+                string path = Path.Combine(ReplayLibrary.SavedDir, FromImportedFile);
+                return File.Exists(path) && Array.IndexOf(File.ReadAllLines(path), id) >= 0;
+            }
+            catch (Exception e) { Plugin.Log.LogWarning("Replays: can't read " + FromImportedFile + ": " + e.Message); return false; }
+        }
+
+        private static void SetFromImported(string id, bool on)
+        {
+            try
+            {
+                string path = Path.Combine(ReplayLibrary.SavedDir, FromImportedFile);
+                var ids = new System.Collections.Generic.List<string>();
+                if (File.Exists(path))
+                    foreach (string line in File.ReadAllLines(path))
+                        if (line.Length > 0 && line != id) ids.Add(line);
+                if (on) ids.Add(id);
+                if (ids.Count > 0) File.WriteAllLines(path, ids.ToArray());
+                else if (File.Exists(path)) File.Delete(path);
+            }
+            catch (Exception e) { Plugin.Log.LogWarning("Replays: can't update " + FromImportedFile + ": " + e.Message); }
         }
 
         private static void AfterUnsave(string id, Action change)
@@ -300,6 +418,7 @@ namespace HsPuzzleBridge
             try
             {
                 change();
+                SetFromImported(id, false);
                 Plugin.Log.LogInfo("Replays: unsaved " + id);
             }
             catch (Exception e)

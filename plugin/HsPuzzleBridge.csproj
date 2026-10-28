@@ -4,7 +4,7 @@
     <TargetFramework>net48</TargetFramework>
     <AssemblyName>com.testhsserver.puzzlebridge</AssemblyName>
     <Product>HS Replay Watcher</Product>
-    <Version>0.28.0</Version>
+    <Version>0.29.0</Version>
     <LangVersion>latest</LangVersion>
     <RootNamespace>HsPuzzleBridge</RootNamespace>
     <RestoreAdditionalProjectSources>
@@ -58,6 +58,10 @@
     </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>$(HearthstoneManagedPath)UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule">
+      <HintPath>$(HearthstoneManagedPath)UnityEngine.JSONSerializeModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Blizzard.T5.Game">

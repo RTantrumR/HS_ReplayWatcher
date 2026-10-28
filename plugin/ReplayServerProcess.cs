@@ -41,7 +41,7 @@ namespace HsPuzzleBridge
                 FileName = Plugin.Python,
                 Arguments = $"-m hsserver.catalog \"{Plugin.Recordings}\" --keep {Plugin.KeepGames.Value}" +
                             (ReplayLibrary.HasSavedDir ? $" --saved \"{ReplayLibrary.SavedDir}\"" : "") +
-                            $" --logs \"{Plugin.Logs}\"",
+                            $" --logs \"{ReplayLibrary.ImportedDir}\"",
                 WorkingDirectory = Plugin.Server,
                 UseShellExecute = false,
                 CreateNoWindow = true,
@@ -96,7 +96,7 @@ namespace HsPuzzleBridge
                 Arguments = $"\"{Path.Combine(dir, "tools", "replay_server.py")}\" " +
                             $"--recordings \"{Plugin.Recordings}\" " +
                             (ReplayLibrary.HasSavedDir ? $"--saved \"{ReplayLibrary.SavedDir}\" " : "") +
-                            $"--logs \"{Plugin.Logs}\" " +
+                            $"--logs \"{ReplayLibrary.ImportedDir}\" " +
                             $"--port {Plugin.LocalServerPort.Value} --control-port {Plugin.ControlPort.Value} " +
                             $"--parent-pid {Process.GetCurrentProcess().Id}",
                 WorkingDirectory = dir,

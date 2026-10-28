@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace HsPuzzleBridge
 {
-    [BepInPlugin("com.testhsserver.puzzlebridge", "HS Replay Watcher", "0.28.0")]
+    [BepInPlugin("com.testhsserver.puzzlebridge", "HS Replay Watcher", "0.29.0")]
     public class Plugin : BaseUnityPlugin
     {
         internal static Plugin Instance;
@@ -21,9 +21,9 @@ namespace HsPuzzleBridge
         internal static ConfigEntry<int> ControlPort, KeepGames;
         internal static ConfigEntry<KeyCode> PanelToggleKey;
         internal static ConfigEntry<float> EditorX, EditorY, BarX, BarY, ActionBoost, ActionBoostSeconds;
-        internal static ConfigEntry<bool> BarCompact, FrameProbe;
+        internal static ConfigEntry<bool> BarCompact, FrameProbe, NoAskRemove, NoAskDelete;
         internal static ConfigEntry<KeyCode> UiDumpKey, EditorKey;
-        internal static ConfigEntry<string> PythonExe, ServerDir, RowLayout, SavedDir, LogsDir, IssuesUrl;
+        internal static ConfigEntry<string> PythonExe, ServerDir, RowLayout, SavedDir, IssuesUrl, SortSaved, SortImported;
 
         private void Awake()
         {
@@ -32,7 +32,8 @@ namespace HsPuzzleBridge
             RecorderEnabled = Config.Bind("Recorder", "Enabled", true,
                 "Write every game-server packet (both directions) to a JSONL file per game connection.");
             RecordingsDir = Config.Bind("Recorder", "Directory", "",
-                "Folder that receives the recordings. Empty: %LOCALAPPDATA%\\HS Replay Watcher\\Recordings.");
+                "Folder that receives the recordings. Empty: the Recent folder in Library.SavedDir once that is chosen, " +
+                "until then %LOCALAPPDATA%\\HS Replay Watcher\\Recordings.");
             RecordLocalSessions = Config.Bind("Recorder", "RecordLocalSessions", false,
                 "Also record connections to the local replay server (watching a replay); a dev aid.");
             LocalServerHost = Config.Bind("LocalServer", "Host", "127.0.0.1", "Local game server address.");
@@ -50,11 +51,17 @@ namespace HsPuzzleBridge
                 "How many of the newest games keep their recordings; older ones are deleted at the next catalog scan.",
                 new AcceptableValueRange<int>(5, 50)));
             SavedDir = Config.Bind("Library", "SavedDir", "",
-                "Folder for the saved games (the Replays page's hearts), outside the Hearthstone folder so updates and " +
-                "reinstalls never touch it. Empty: asked for (a folder window) the first time a game is saved.");
-            LogsDir = Config.Bind("Library", "LogsDir", "",
-                "Folder for games converted from Power.log (python -m hsserver.powerlog), the Replays page's Logs view. " +
-                "Empty: %LOCALAPPDATA%\\HS Replay Watcher\\Logs.");
+                "Folder for the replays (its Recent, Saved and Imported folders), outside the Hearthstone folder " +
+                "so updates and reinstalls never touch it. Empty: asked for (a folder window) the first time a game is " +
+                "saved or imported.");
+            NoAskRemove = Config.Bind("Library", "NoAskRemove", false,
+                "Remove saved or imported replays without asking (the Replays page's settings).");
+            NoAskDelete = Config.Bind("Library", "NoAskDelete", false,
+                "With NoAskRemove: also delete without asking, when unstarring a saved replay deletes it for good.");
+            SortSaved = Config.Bind("Library", "SortSaved", "Newest first",
+                "The saved replays' order (the page's sort button): Newest first, Oldest first, Best place, Hero name (A-Z), Longest.");
+            SortImported = Config.Bind("Library", "SortImported", "Newest first",
+                "The imported replays' order (the page's sort button): Newest first, Oldest first, Best place, Hero name (A-Z), Longest.");
             RowLayout = Config.Bind("Library", "RowLayout", "",
                 "Replays page row layout overrides, e.g. \"Pitch=15;HeroScale=3.4\" (see ReplaysUi.Layout; Alt+F12 reloads).");
             EditorKey = Config.Bind("Library", "EditorKey", KeyCode.F11,
@@ -87,14 +94,23 @@ namespace HsPuzzleBridge
 
         private static string DataDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HS Replay Watcher");
 
-        /// <summary>The recordings folder: the config's, else one under %LOCALAPPDATA% (an install keeps none in HS).</summary>
-        internal static string Recordings => RecordingsDir.Value.Length > 0 ? RecordingsDir.Value : Path.Combine(DataDir, "Recordings");
+        /// <summary>The recordings folder: the config's, else the chosen folder's Recent, else one under %LOCALAPPDATA%
+        /// (an install keeps none in HS; its games move into Recent once a folder is chosen: <see cref="ReplayLibrary.SplitSavedDir"/>).</summary>
+        internal static string Recordings => RecordingsDir.Value.Length > 0 ? RecordingsDir.Value
+                                           : ReplayLibrary.HasSavedDir ? ReplayLibrary.RecentDir : DefaultRecordings;
 
-        /// <summary>The folder of games converted from Power.log: the config's, else one beside the recordings.</summary>
-        internal static string Logs => LogsDir.Value.Length > 0 ? LogsDir.Value : Path.Combine(DataDir, "Logs");
+        /// <summary>The recordings folder until one is chosen (and while the chosen one is missing, e.g. a drive unplugged).</summary>
+        internal static string DefaultRecordings => Path.Combine(DataDir, "Recordings");
+
+        /// <summary>The converter's default output (python -m hsserver.powerlog): the imported games until a saved folder
+        /// is chosen, whose Imported folder then takes them (<see cref="ReplayLibrary.SplitSavedDir"/>).</summary>
+        internal static string Logs => Path.Combine(DataDir, "Logs");
 
         /// <summary>The bug reports' folders (<see cref="BugReport"/>).</summary>
         internal static string Reports => Path.Combine(DataDir, "Reports");
+
+        /// <summary>The shareable copy last put on the clipboard (<see cref="ReplayShare"/>).</summary>
+        internal static string Shared => Path.Combine(DataDir, "Shared");
 
         internal static string Server =>ServerDir.Value.Length > 0 ? ServerDir.Value : Path.Combine(InstallDir, "server");
 
@@ -115,6 +131,8 @@ namespace HsPuzzleBridge
                 ReplayBar.Update();
                 ReconnectPopup.Update();
                 FolderPicker.Update();
+                ReplayShare.Update();
+                ReplaysUi.UpdateImport();
                 SpectatorJoin.Update();
                 CombatDoneNote.Update();
                 UiDump.Update();
@@ -135,6 +153,8 @@ namespace HsPuzzleBridge
             Probe("bar", ReplayBar.Update);
             Probe("reconnect", ReconnectPopup.Update);
             Probe("picker", FolderPicker.Update);
+            Probe("share", ReplayShare.Update);
+            Probe("import", ReplaysUi.UpdateImport);
             Probe("spectator", SpectatorJoin.Update);
             Probe("combatnote", CombatDoneNote.Update);
             Probe("dump", UiDump.Update);

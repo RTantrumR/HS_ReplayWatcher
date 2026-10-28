@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using Blizzard.GameService.SDK.Client.Integration;
 using PegasusShared;
 using UnityEngine;
@@ -27,6 +28,15 @@ namespace HsPuzzleBridge
             public int? Rating, Change;
             public readonly List<Minion> Board = new List<Minion>(), Hand = new List<Minion>();
             public readonly List<string> HeroPowers = new List<string>(), Trinkets = new List<string>();
+            /// <summary>The quest that traded the hero power away and its reward (the rows file's 13th field).</summary>
+            public readonly List<string> HpQuest = new List<string>();
+            /// <summary>The icons' text tags at the game's end, by slot: h0, h1 (the top cells), t0, t1 (the bottom
+            /// ones), q, r (that quest and reward); the rows file's 14th field (hsserver.catalog.TEXT_TAGS).</summary>
+            public readonly Dictionary<string, List<KeyValuePair<int, int>>> IconTags =
+                new Dictionary<string, List<KeyValuePair<int, int>>>();
+
+            public List<KeyValuePair<int, int>> TagsOf(string slot) =>
+                IconTags.TryGetValue(slot, out var tags) ? tags : null;
         }
 
         /// <summary>A card on the final board or in the final hand (a spell: 0 attack and health).</summary>
@@ -42,8 +52,8 @@ namespace HsPuzzleBridge
         private const string RowsFile = ".catalog.txt";
         private const int BgSoloMission = 3459; // BaconDisplay.PlayButtonRelease's solo FindGame
 
-        /// <summary>One list the page can show (the recent games, the saved ones, the ones converted from Power.log),
-        /// each with its own rows file.</summary>
+        /// <summary>One list the page can show (the recent games, the saved ones, the imported ones: other players'
+        /// and those converted from Power.log), each with its own rows file.</summary>
         public sealed class View
         {
             public readonly string Name;
@@ -58,13 +68,15 @@ namespace HsPuzzleBridge
 
         public static readonly View Recent = new View("recent", "Replays", "Recent replays"),
                                     Saved = new View("saved", "Saved replays", "Saved replays"),
-                                    Logs = new View("logs", "Log replays", "Log replays");
+                                    Imported = new View("imported", "Imported replays", "Imported replays");
         /// <summary>The page's views, in the switch's order (after the views: static fields start in order).</summary>
-        public static readonly View[] Views = { Recent, Saved, Logs };
+        public static readonly View[] Views = { Recent, Saved, Imported };
         /// <summary>The view on the page.</summary>
         public static View Current { get; private set; } = Recent;
         /// <summary>The view the switch goes to: the next one round the list.</summary>
         public static View Next => Views[(Array.IndexOf(Views, Current) + 1) % Views.Length];
+        /// <summary>The view before the shown one, round the list.</summary>
+        public static View Prev => Views[(Array.IndexOf(Views, Current) + Views.Length - 1) % Views.Length];
         public static List<Entry> Entries => Current.Entries;
         public static string WatchingId => _watchId;
         /// <summary>The game of the replay last joined (kept through the replay; the bug report names it).</summary>
@@ -84,8 +96,9 @@ namespace HsPuzzleBridge
             _open = true;
             LastError = null;
             // The converter makes it too; here it exists for the scan and the server from the first open.
-            try { Directory.CreateDirectory(Plugin.Logs); }
-            catch (Exception e) { Plugin.Log.LogWarning("Replays: can't create the logs folder: " + e.Message); }
+            try { Directory.CreateDirectory(ImportedDir); }
+            catch (Exception e) { Plugin.Log.LogWarning("Replays: can't create the imported folder: " + e.Message); }
+            SplitSavedDir();
             LoadRows();
             ReplayServerProcess.ScanCatalog();
         }
@@ -99,8 +112,54 @@ namespace HsPuzzleBridge
             LoadRows();
         }
 
-        public static string SavedDir => Plugin.SavedDir.Value;
-        public static bool HasSavedDir => !string.IsNullOrEmpty(SavedDir) && Directory.Exists(SavedDir);
+        /// <summary>The folder the player chose, holding Recent, Saved and Imported.</summary>
+        public static string SavedRoot => Plugin.SavedDir.Value;
+        public static bool HasSavedDir => !string.IsNullOrEmpty(SavedRoot) && Directory.Exists(SavedRoot);
+        /// <summary>The recent games (the recorder's folder, <see cref="Plugin.Recordings"/>, unless the config names one).</summary>
+        public static string RecentDir => Path.Combine(SavedRoot, "Recent");
+        /// <summary>The saved (starred) games.</summary>
+        public static string SavedDir => Path.Combine(SavedRoot, "Saved");
+        /// <summary>The imported games: the chosen folder's Imported, or, until one is chosen, the converter's folder.</summary>
+        public static string ImportedDir => HasSavedDir ? Path.Combine(SavedRoot, "Imported") : Plugin.Logs;
+
+        /// <summary>Our recordings' names (the recorder's yyyyMMdd_HHmmss_game..., the converter's ..._log...).</summary>
+        private static readonly Regex RecordingName = new Regex(@"^\d{8}_\d{6}_.+\.jsonl(\.gz)?$");
+
+        /// <summary>The chosen folder holds three: Recent, Saved and Imported. Games from before the split move in: those
+        /// at its top into Saved, the converter's (Plugin.Logs) into Imported, the recorder's from before the folder
+        /// was chosen (or while it was missing) into Recent; each folder's catalog files go with its games while the
+        /// new folder has none (File.Move keeps the write times, so the scan's cache still knows them).
+        /// Run at every page open, as the converter keeps writing to its own folder.</summary>
+        public static void SplitSavedDir()
+        {
+            if (!HasSavedDir) return;
+            MoveGames(SavedRoot, SavedDir);
+            MoveGames(Plugin.Logs, ImportedDir);
+            if (Plugin.RecordingsDir.Value.Length == 0) MoveGames(Plugin.DefaultRecordings, RecentDir);
+        }
+
+        private static void MoveGames(string from, string to)
+        {
+            try
+            {
+                Directory.CreateDirectory(to);
+                if (!Directory.Exists(from)) return;
+                bool catalog = !File.Exists(Path.Combine(to, RowsFile));
+                int moved = 0;
+                foreach (string path in Directory.GetFiles(from))
+                {
+                    string name = Path.GetFileName(path);
+                    if (!RecordingName.IsMatch(name) && !(catalog && name.StartsWith(".catalog."))) continue;
+                    string dst = Path.Combine(to, name);
+                    if (File.Exists(dst)) continue;
+                    // One file in use (a recording still open) stays for the next open; the others still move.
+                    try { File.Move(path, dst); moved++; }
+                    catch (IOException e) { Plugin.Log.LogWarning($"Replays: can't move {name} yet: {e.Message}"); }
+                }
+                if (moved > 0) Plugin.Log.LogInfo($"Replays: moved {moved} files from {from} to {to}");
+            }
+            catch (Exception e) { Plugin.Log.LogWarning($"Replays: can't move the games from {from} to {to}: {e.Message}"); }
+        }
 
         /// <summary>A game's recording in folder (compressed or not), or null.</summary>
         public static string RecordingIn(string folder, string id)
@@ -185,19 +244,40 @@ namespace HsPuzzleBridge
             }
         }
 
+        /// <summary>A view's folder (null: none yet).</summary>
+        public static string FolderOf(View view) =>
+            view == Saved ? (HasSavedDir ? SavedDir : null) : view == Imported ? ImportedDir : Plugin.Recordings;
+
         /// <summary>The rows file of a view's folder (null: none).</summary>
         public static string RowsPath(View view)
         {
-            string folder = view == Saved ? (HasSavedDir ? SavedDir : null) : view == Logs ? Plugin.Logs : Plugin.Recordings;
+            string folder = FolderOf(view);
             return folder != null ? Path.Combine(folder, RowsFile) : null;
         }
 
         /// <summary>A game saved or unsaved: its row goes into (or out of) the saved folder's rows file at once, so
-        /// the Saved view is right the moment the heart is clicked; the catalog scan (which decodes nothing for a
+        /// the Saved view is right the moment the star is clicked; the catalog scan (which decodes nothing for a
         /// copy it already knows) writes the same rows later.</summary>
         public static void SetSavedRow(string id, bool saved)
         {
-            string path = RowsPath(Saved);
+            if (!saved) { SetRow(Saved, id, null); return; }
+            string row = RowOf(Recent, id) ?? RowOf(Imported, id);
+            if (row == null) { Plugin.Log.LogWarning("Replays: no row to copy for " + id); return; }
+            SetRow(Saved, id, row);
+        }
+
+        /// <summary>A game's row in a view's rows file, or null.</summary>
+        private static string RowOf(View view, string id)
+        {
+            foreach (string line in (view.RowsText ?? "").Split('\n'))
+                if (line.StartsWith(id + "|")) return line.TrimEnd('\r');
+            return null;
+        }
+
+        /// <summary>A game's row put into (row) or taken out of (null) a view's rows file, then the rows re-read.</summary>
+        public static void SetRow(View view, string id, string row)
+        {
+            string path = RowsPath(view);
             if (path == null) return;
             try
             {
@@ -205,26 +285,19 @@ namespace HsPuzzleBridge
                 if (File.Exists(path))
                     foreach (string line in File.ReadAllText(path).Split('\n'))
                         if (line.Trim().Length > 0 && !line.StartsWith(id + "|")) lines.Add(line.TrimEnd('\r'));
-                if (saved)
-                {
-                    string row = null;
-                    foreach (string line in (Recent.RowsText ?? "").Split('\n'))
-                        if (line.StartsWith(id + "|")) { row = line.TrimEnd('\r'); break; }
-                    if (row == null) { Plugin.Log.LogWarning("Replays: no row to copy for " + id); return; }
-                    lines.Add(row);
-                }
+                if (row != null) lines.Add(row);
                 lines.Sort((a, b) => string.CompareOrdinal(b, a)); // newest first, as the catalog writes them
                 string tmp = path + ".tmp";
                 File.WriteAllText(tmp, string.Join("\n", lines.ToArray()));
                 if (File.Exists(path)) File.Replace(tmp, path, null);
                 else File.Move(tmp, path);
             }
-            catch (Exception e) { Plugin.Log.LogWarning($"Replays: can't update the saved rows: {e.Message}"); }
+            catch (Exception e) { Plugin.Log.LogWarning($"Replays: can't update the {view.Name} rows: {e.Message}"); }
             LoadRows();
         }
 
         /// <summary>Every view's rows file: one game per line, newest first,
-        /// id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand (board, hand: card:attack:health:golden[:keywords];
+        /// id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand|hero power quest|icon tags (board, hand: card:attack:health:golden[:keywords];
         /// lists comma-separated; see hsserver.catalog.row). Public: the saved view's file is also written by the page.</summary>
         public static void LoadRows()
         {
@@ -261,10 +334,31 @@ namespace HsPuzzleBridge
                 if (f.Length > 9) entry.HeroPowers.AddRange(f[9].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
                 if (f.Length > 10) entry.Trinkets.AddRange(f[10].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
                 if (f.Length > 11) ParseCards(f[11], entry.Hand);
+                if (f.Length > 12) entry.HpQuest.AddRange(f[12].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+                if (f.Length > 13) ParseTags(f[13], entry.IconTags);
                 entries.Add(entry);
             }
             view.Loaded = true;
             view.Version++;
+        }
+
+        /// <summary>slot:tag=value;tag=value, comma-separated (see hsserver.catalog.row).</summary>
+        private static void ParseTags(string field, Dictionary<string, List<KeyValuePair<int, int>>> into)
+        {
+            foreach (string item in field.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                int colon = item.IndexOf(':');
+                if (colon <= 0) continue;
+                var pairs = new List<KeyValuePair<int, int>>();
+                foreach (string pair in item.Substring(colon + 1).Split(';'))
+                {
+                    int eq = pair.IndexOf('=');
+                    if (eq <= 0) continue;
+                    int? tag = ParseInt(pair.Substring(0, eq)), value = ParseInt(pair.Substring(eq + 1));
+                    if (tag.HasValue && value.HasValue) pairs.Add(new KeyValuePair<int, int>(tag.Value, value.Value));
+                }
+                if (pairs.Count > 0) into[item.Substring(0, colon)] = pairs;
+            }
         }
 
         private static void ParseCards(string field, List<Minion> cards)

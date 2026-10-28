@@ -196,6 +196,7 @@ namespace HsPuzzleBridge
             _pageShown = false;
             _hiddenAt = Time.unscaledTime;
             _wheelOn = false;
+            ReplaysOptions.Hide();
             ReplayLibrary.Close();
             if (_page != null) _page.TriggerEvent("HIDE");
         }
@@ -205,10 +206,12 @@ namespace HsPuzzleBridge
         public static void Update()
         {
             if (!_pageReady || _page == null || _rowsParent == null) return;
-            if (_pageShown && _title != null && _title.Text != CurrentTitle)
+            SyncTabLayers();
+            string title = HasTabs ? MiddleTabName : CurrentTitle;
+            if (_pageShown && _title != null && _title.Text != title)
             {
                 _title.GameStringLookup = false;
-                _title.Text = CurrentTitle;
+                _title.Text = title;
             }
             if (Input.GetKeyDown(Plugin.UiDumpKey.Value) && Input.GetKey(KeyCode.LeftAlt))
             {
@@ -219,8 +222,13 @@ namespace HsPuzzleBridge
             }
             ShowSet(Current);
             if (_pageShown) PlaceBugButton(Layout.Current);
+            // Ctrl+V on the page imports copied replay files (not while a popup or a window of ours is up).
+            if (_pageShown && Input.GetKeyDown(KeyCode.V) && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+                && !ReplaysOptions.Shown && !FolderPicker.Open && DialogManager.Get()?.ShowingDialog() != true)
+                PasteImport();
             HidePortraitNames();
             OpenTrinkets();
+            LockHeroPowers();
             UpdateSaved();
             if (_scroll == null) SetWheel(Layout.Current); // once the scrollable exists (the page's states build it)
             UpdateWheel();
@@ -230,6 +238,7 @@ namespace HsPuzzleBridge
             {
                 if (p.Root == null || !p.Row.gameObject.activeSelf) continue;
                 PlaceBigCards(p);
+                SyncHpQuestCards(p);
                 HoldPlaces(p, Layout.Current);
                 UpdateHand(p);
                 foreach (var t in new[] { p.Name, p.PlaceText, p.Date, p.Length })
@@ -260,9 +269,24 @@ namespace HsPuzzleBridge
             public float BgX = 38.8f, BgZ = -8.5f, BgW = 73.9f, BgH = 16.25f, Border = 2f;
             public float HeroX = 9.25f, HeroZ = -10.1f, HeroScale = 5.7f;
             public float HpX = 17.75f, HpZ = -4.85f, HpScale = 2.9f, HpGap = 5.5f;
+            // A game left without a hero power shows the hero's own, locked (ReplaysUi.LockedHp.cs): the padlock's
+            // width against the icon's, and its move up the screen in icon widths.
+            public float HpLockSize = 0.36f, HpLockZ = 0f;
+            // A hero power a quest traded away shows the quest's and the reward's cards beside its hover card
+            // (ReplaysUi.HpQuest.cs): their gap (of the hover card's frame width: ~15 px at 1080p), height and lift (of
+            // its frame height), and the share of a hand card's frame bounds that is the card drawn (measured 183 of
+            // 233 px).
+            public float HpQuestGap = 0.06f, HpQuestSize = 1.29f, HpQuestUp = 0.04f, HpQuestTrim = 0.785f;
+            public float HpQuestShift = -3f; // the hover card moved right (row units) when it has them, so all three fit
             public float TrinketX = 17.75f, TrinketZ = -10.4f, TrinketScale = 2.9f, TrinketGap = 5.5f;
             public float NameX = 8.8f, NameZ = -14.4f, NameScale = 0.63f;
-            public float StarX = 28.6f, StarZ = -1.4f, StarScale = 3.6f; // the save star (ReplaysSaved.cs): centre, its badge's height
+            // The star and the share button stand the same distance from the place's text between them (measured
+            // 2026-10-28 at 1080p, 15.95 px a row unit: the star's badge reaches 11 px from its own centre and the
+            // arrow 13 px from its, so their centres are not the same distance out from the text). Move one and move
+            // the other by as much, or the text stops sitting evenly between them.
+            public float StarX = 29.15f, StarZ = -1.4f, StarScale = 3.6f; // the save star (ReplaysSaved.cs): centre, its badge's height
+            public float TrashScale = 1.8f; // an imported game's remove button, at the star's spot: its size (its lid as wide as the star's badge)
+            public float ShareX = 39.1f, ShareZ = -1.4f, ShareScale = 1.8f; // the share button
             public float PlaceX = 34f, PlaceZ = -2f, PlaceScale = 0.84f, PlaceTextLift = 0.6f; // the text above its tab's centre
             public float DateX = 60.95f, DateZ = -2.15f, DateScale = 0.76f;
             public float LengthX = 50.2f, LengthZ = -2.15f, LengthScale = 0.76f;
@@ -270,19 +294,40 @@ namespace HsPuzzleBridge
             public float WatchX = 70.25f, WatchZ = -3.2f, WatchScale = 0.8f;
             // The bug button (BugButton.cs), left of the Back button, in Back button heights: the gap to it, up, size.
             public float BugX = 0.4f, BugZ = 0f, BugScale = 0.9f;
-            // The settings strip above the rows (ReplaysSettings.cs): the rows start ListTop lower; the slider in the
-            // first row's units (the Options menu's slider is built turned half round: 180 about y sets it upright).
+            // The views' arrows at the ends of the title's plate (ReplaysSaved.cs): their distance from the title in the
+            // title's frame units, both moved TitleArrowShift of them right (the plate's parchment sits a little right
+            // of the title), their lift, width (world units), and the turn of the dropdown's downward arrow.
+            public float TitleArrowX = 1.39f, TitleArrowShift = 0.11f, TitleArrowZ = 0f, TitleArrowSize = 2.6f, TitleArrowRot = 90f;
+            // The views' tabs instead (ReplaysUi.Tabs.cs), in 1080p screen px unless said: frame units per px; the
+            // painted plate's px per texture px across and down (the frame's own scale: the whole panel is laid out
+            // by it, so measure both against the untouched frame, never by eye); the title's offset from the painted
+            // plate's middle (right, down); the group's size (about the painted plate's middle), move right (the
+            // painted plate sits ~23 px left of the middle between the frame's corner posts) and gap between plates;
+            // the panel's lift above the frame (frame units); the other tabs' label colour ("" = the title's, faded).
+            public float TabPx = 0.01066f, TabPlateSX = 1.43f, TabPlateSY = 1.45f, TabX = 0f, TabZ = 0f;
+            public float TabScale = 0.91f, TabShift = 23f, TabGap = 28f, TabLift = 0.03f;
+            public string TabIdleColor = "";
+            // The strip above the rows (ReplaysSettings.cs): the rows start ListTop lower; its parts in the first row's
+            // units: the sort dropdown at its left (saved and imported), the view's size (or the empty list's line)
+            // centred at SizeX, the Import and Settings buttons at its right.
             public float ListTop = 3.55f;
-            public float SwitchX = 9f, SwitchZ = -0.25f, SwitchScale = 0.8f; // the recent/saved switch, at the strip's left
-            public float SliderX = 45f, SliderZ = -0.25f, SliderScale = 4f, SliderRotX = 0f, SliderRotY = 180f, SliderRotZ = 0f;
+            public float SizeX = 40f, SizeZ = -0.25f;
+            public float SettingsX = 70.25f, SettingsZ = -0.25f, SettingsScale = 0.8f;
+            public float ImportX = 59.5f, ImportZ = -0.25f; // the imported view's Import button (Settings' size)
+            public float SortX = 12.1f, SortZ = -0.25f, SortScale = 4f, SortRotY = 180f, SortWidth = 0.78f, SortFont = 1.35f; // the sort dropdown (the Options menu's), its width (ends kept) and font against the menu's
+            public float SortMenuX = 1.9f; // its open menu moved this many strip units right (its left edge under the box's field)
             // The strip's texts (copies of the row's name text, as the rows' texts are): size, box width in row
-            // units, gap to the slider's track; the empty saved list's line is centred on the slider.
-            public float StripTextScale = 0.8f, StripTextWidth = 24f, StripTextGap = 1.5f, StripEmptyWidth = 70f;
+            // units; the empty lists' line's width.
+            public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 38f;
             // The strip texts' plate (see PlateStyles; 0 none; the title's ribbon by default: the frame's band and
             // pill are too faint on the parchment), its height and the padding round the text; their colour
             // ("" = as the rows' length text).
             public float StripPlate = 4f, StripPlateH = 3.4f, StripPlatePad = 2f;
             public string StripColor = "";
+            // The Settings and Import buttons' icons: height against the drawn label's, the gap before the label (of
+            // the icon's height), and their colour ("" = the label's).
+            public float StripIconSize = 1.1f, StripIconGap = 0.3f;
+            public string StripIconColor = "";
             // Row pitches the list moves per notch of the mouse wheel (the stock scroll moves a tenth of the list);
             // the move glides (WheelStep), so quick notches add up.
             public float ScrollRows = 1f;
@@ -296,7 +341,9 @@ namespace HsPuzzleBridge
             public string BgColor = "#FFFFFFFF", NameColor = "#F5F5F5FF", PlaceColor = "", DateColor = "", LengthColor = "";
             // A plate behind each text (see PlateStyles): 0 none; with a plate the text is centred on it, at X/Y.
             public float NamePlate = 2f, NamePlateW = 11.85f, NamePlateH = 3.4f;
-            public float PlacePlate = 1f, PlacePlateW = 14.3f, PlacePlateH = 3.05f;
+            // The place's tab is wider than its text (and can be shifted off it, PlacePlateShift): the star (an
+            // imported row's remove button) sits on its left end, the share button on its right.
+            public float PlacePlate = 1f, PlacePlateW = 15.2f, PlacePlateH = 3.05f, PlacePlateShift = 0f;
             public float DatePlate = 3f, DatePlateW = 29.45f, DatePlateH = 3f;
             public float LengthPlate = 3f, LengthPlateW = 24.25f, LengthPlateH = 3f;
             // The final hand (ReplaysUi.Hand.cs): the icon's centre and height (a card back's, row units), the backs'
@@ -380,12 +427,14 @@ namespace HsPuzzleBridge
             public bool Hidden; // not yet revealed (RevealSettled)
             public int SetUpFrame;
             public float SetUpAt;
-            public int Index, Place, MinionCount;
+            public int Index, Entry, Place, MinionCount; // Index: its place on the page; Entry: its line in the rows file
             public string Id;
             public Transform Heart; // the portrait's favourite badge (ReplaysSaved.cs)
             public Renderer HeartIcon;
             public float HeartY, HeartUnit; // the badge's lift, and its scale per row unit of height (ReplaysSaved.cs)
             public bool? HeartSaved;
+            public bool HeartHover; // the mouse on the star: shown gold
+            public Transform Trash, Share; // an imported game's remove button, every game's share (ReplaysRowButtons.cs)
             public Transform Row, Root, Bg, Hero, HeroPower, DualHeroPower, Trinket1, Trinket2, Minions, Watch;
             // The icon slots holding a trinket (a hero power slot can: see PastGame), for OpenTrinkets.
             public readonly List<Transform> TrinketSlots = new List<Transform>();
@@ -399,6 +448,13 @@ namespace HsPuzzleBridge
             public MeshFilter Roster; // the stock row frame (collapsed): its mesh and material make the cropped plates
             public bool PortraitNameHidden;
             public bool TrinketsOpened;
+            public bool HpLocked; // no hero power left at the end: the hero's own is shown under a padlock
+            public Transform HpLock;
+            public Transform HpBig; // the hero power's hover card, when a quest traded it away (ReplaysUi.HpQuest.cs)
+            public readonly List<string> HpQuestIds = new List<string>(); // that quest and its reward
+            public int HpQuestGoal; // the quest's goal, the {0} of its text (0: unknown)
+            public readonly List<List<KeyValuePair<int, int>>> HpQuestTags = new List<List<KeyValuePair<int, int>>>(); // theirs at the end
+            public readonly List<Transform> HpQuestCards = new List<Transform>(); // their cards beside it (made when first shown)
             public HandParts Hand; // the final hand's icon and cards (ReplaysUi.Hand.cs); null: an empty hand
         }
 
@@ -411,6 +467,7 @@ namespace HsPuzzleBridge
             public readonly List<GameObject> Rows = new List<GameObject>();
             public readonly List<RowParts> Parts = new List<RowParts>();
             public readonly List<int> Queue = new List<int>();
+            public int[] Slots = new int[0]; // each entry's place on the page (ReplaysSort.cs)
             public int Loading, Generation, BuiltVersion = -1;
             public float QueueWaitingSince;
             public UIBScrollableItem Extent;
@@ -491,11 +548,12 @@ namespace HsPuzzleBridge
             if (_rowAsset == null) { Plugin.Log.LogWarning("Replays rows: no GameHistory template"); return; }
             _down = _slot2 != null ? (_slot2.localPosition - _slot1.localPosition).normalized : Vector3.back;
             var entries = set.View.Entries;
+            set.Slots = SlotsOf(set.View);
+            for (int i = 0; i < entries.Count; i++) set.Rows.Add(null);
             for (int i = 0; i < entries.Count; i++)
             {
-                set.Rows.Add(null);
                 // The shown view's first rows at once; the parked view's all one by one, after the shown one's.
-                if (set.Shown && i < EagerRows) CreateRow(set, i);
+                if (set.Shown && set.Slots[i] < EagerRows) CreateRow(set, i);
                 else set.Queue.Add(i);
             }
             set.QueueWaitingSince = Time.realtimeSinceStartup;
@@ -509,7 +567,7 @@ namespace HsPuzzleBridge
             var row = WidgetInstance.Create(_rowAsset);
             row.name = "ReplayRow_" + entry.Id;
             row.transform.SetParent(_rowsParent, false);
-            row.transform.localPosition = RowPosition(set, i, Layout.Current);
+            row.transform.localPosition = RowPosition(set, set.Slots[i], Layout.Current);
             row.transform.localRotation = _slot1.localRotation;
             row.transform.localScale = _slot1.localScale;
             row.gameObject.layer = _slot1.gameObject.layer;
@@ -554,7 +612,7 @@ namespace HsPuzzleBridge
                 int best = int.MaxValue;
                 for (int k = 0; k < set.Queue.Count; k++)
                 {
-                    int d = set.Queue[k] - top;
+                    int d = set.Slots[set.Queue[k]] - top;
                     int cost = d >= -1 ? d : 100 - d; // the view and below it first, then above
                     if (cost < best) { best = cost; pick = k; }
                 }
@@ -590,6 +648,8 @@ namespace HsPuzzleBridge
                 set.Extent = go.AddComponent<UIBScrollableItem>();
                 set.Extent.m_boundsMode = UIBScrollableItem.BoundsMode.Fixed;
             }
+            else if (set.Extent.transform.parent != first.Root)
+                set.Extent.transform.SetParent(first.Root, false); // a new order put another row first
             set.Extent.m_active = set.Shown ? UIBScrollableItem.ActiveState.Active : UIBScrollableItem.ActiveState.Inactive;
             int last = Math.Max(0, set.Rows.Count - 1);
             var step = first.Root.InverseTransformVector(_rowsParent.TransformVector(_down * l.Pitch));
@@ -835,7 +895,7 @@ namespace HsPuzzleBridge
             var parts = new RowParts
             {
                 Set = set, Widget = row, Hidden = true, SetUpFrame = Time.frameCount, SetUpAt = Time.unscaledTime,
-                Index = index, Id = entry.Id, Place = entry.Place, MinionCount = entry.Board.Count, Row = row.transform,
+                Index = set.Slots[index], Entry = index, Id = entry.Id, Place = entry.Place, MinionCount = entry.Board.Count, Row = row.transform,
                 Root = root,
             };
             // Collapsed rather than deactivated: the row's own states switch some of them back on.
@@ -863,6 +923,7 @@ namespace HsPuzzleBridge
             parts.Minions = Find(root, "MinionParent");
             // On the stats page the slot's states show these when the game has them; our rows have no slot.
             parts.HeroPower = Show(Find(root, "HeroPower"), game.HeroPower != null);
+            parts.HpLocked = game.HeroPower != null && entry.HeroPowers.Count == 0;
             var dual = Show(Find(root, "Dual HeroPower"), game.DualHeroPower != null);
             parts.DualHeroPower = dual;
             parts.Trinket1 = Show(Find(root, "Trinket1"), game.Trinket1 != null);
@@ -880,6 +941,7 @@ namespace HsPuzzleBridge
                 if (slot.Key != null && slot.Value != null && IsTrinket(slot.Value.CardId)) parts.TrinketSlots.Add(slot.Key);
             // Their hover cards too (else hovering shows the hero card), kept beside their icons wherever they go.
             BigCard(parts, template, parts.HeroPower, Find(root, "HeroPowerBigCard"), game.HeroPower);
+            AddHpQuestCards(parts, Find(root, "HeroPowerBigCard"), entry);
             BigCard(parts, template, dual, Find(root, "DualHeroPowerBigCard"), game.DualHeroPower);
             BigCard(parts, template, parts.Trinket1, Find(root, "Trinket1BigCard"), game.Trinket1);
             BigCard(parts, template, parts.Trinket2, Find(root, "Trinket2BigCard"), game.Trinket2);
@@ -917,6 +979,10 @@ namespace HsPuzzleBridge
             if (template == null || slot == null || card == null) return;
             if (!template.BindDataModel(card, slot.gameObject, true, true))
                 Plugin.Log.LogWarning($"Replays row: couldn't bind {card.CardId} to {slot.name}");
+            // The model's tag overrides (the card's state at the game's end) are off by default on the game's cards.
+            if (card.GameTagOverrides.Count > 0)
+                foreach (var shown in slot.GetComponentsInChildren<Hearthstone.UI.Card>(true))
+                    shown.UseTagOverridesFromDataModel = true;
         }
 
         private static Transform Show(Transform t, bool on)
@@ -1008,7 +1074,7 @@ namespace HsPuzzleBridge
         {
             var l = Layout.Current;
             if (_rowsParent != null) _rowsParent.localPosition = _rowsHome + _down * -l.Top;
-            try { ApplyShadow(l.PageShadow); PlaceStrip(l); PlaceSwitch(l); ColourStrip(); SetWheel(l); }
+            try { ApplyShadow(l.PageShadow); PlaceStrip(l); PlaceViewControls(l); ColourStrip(); SetWheel(l); }
             catch (Exception e) { Plugin.Log.LogWarning("Replays page shadow: " + e.Message); }
             foreach (var p in AllParts)
             {
@@ -1080,7 +1146,7 @@ namespace HsPuzzleBridge
             PlaceBigCards(p);
             Text(p, p.Name, l.NameX, l.NameZ, l.NameScale, l.NameColor, l, l.NamePlate, l.NamePlateW, l.NamePlateH);
             Text(p, p.PlaceText, l.PlaceX, l.PlaceZ, l.PlaceScale, l.PlaceColor, l, l.PlacePlate, l.PlacePlateW,
-                 l.PlacePlateH, PlaceColor(p.Place), l.PlaceTextLift);
+                 l.PlacePlateH, PlaceColor(p.Place), l.PlaceTextLift, l.PlacePlateShift);
             Text(p, p.Date, l.DateX, l.DateZ, l.DateScale, l.DateColor, l, l.DatePlate, l.DatePlateW, l.DatePlateH);
             Text(p, p.Length, l.LengthX, l.LengthZ, l.LengthScale, l.LengthColor, l, l.LengthPlate, l.LengthPlateW,
                  l.LengthPlateH);
@@ -1096,7 +1162,7 @@ namespace HsPuzzleBridge
             {
                 UpdateExtent(p, l);
                 // The strip's texts take their size from a row's text (RowTextUnit): placed again now one exists.
-                if (p.Set.Shown) { PlaceStrip(l); PlaceSwitch(l); ColourStrip(); }
+                if (p.Set.Shown) { PlaceStrip(l); PlaceViewControls(l); ColourStrip(); }
             }
         }
 
@@ -1108,6 +1174,7 @@ namespace HsPuzzleBridge
         {
             Place(p.Hero, l.HeroX, l.HeroZ, new Vector3(l.HeroScale, 1f, l.HeroScale));
             Place(p.HeroPower, l.HpX, l.HpZ, Vector3.one * l.HpScale);
+            PlaceHpLock(p, l);
             // The gained hero power is the first one's child (stock: diagonally up-right); side by side instead.
             if (p.DualHeroPower != null && l.HpScale > 0f)
                 p.DualHeroPower.localPosition = new Vector3(l.HpGap / l.HpScale, 0f, 0f);
@@ -1143,6 +1210,7 @@ namespace HsPuzzleBridge
                 Vector3 at = l.CardFixed >= 0.5f
                     ? new Vector3(l.CardX, 0f, l.CardZ)
                     : p.Root.InverseTransformPoint(icon.position) + new Vector3(l.CardX, 0f, l.CardZ);
+                if (big == p.HpBig && p.HpQuestIds.Count > 0) at.x += l.HpQuestShift; // its quest cards fit the page
                 at.y = l.CardY;
                 big.position = p.Root.TransformPoint(at);
                 var drift = big.GetComponent<TokyoDriftOnActivate>();
@@ -1174,7 +1242,7 @@ namespace HsPuzzleBridge
         /// <summary>A text: without a plate, left-aligned with its box starting at x (the box is centred on its
         /// transform); with one, centred on the plate, which is centred at x, z (the text `lift` higher).</summary>
         private static void Text(RowParts p, RowText t, float x, float z, float scale, string color, Layout l,
-                                 float plate, float plateW, float plateH, Color? auto = null, float lift = 0f)
+                                 float plate, float plateW, float plateH, Color? auto = null, float lift = 0f, float plateShift = 0f)
         {
             if (t == null || t.T == null) return;
             int style = Mathf.Clamp(Mathf.RoundToInt(plate), 0, PlateStyles.Length - 1);
@@ -1199,7 +1267,7 @@ namespace HsPuzzleBridge
                 var off = t.T.parent.InverseTransformVector(t.T.TransformVector(centre));
                 t.T.localPosition = new Vector3(x - off.x, y, z + lift - off.z);
             }
-            SetPlate(p.Root, p, false, t, style, new Vector3(x, y - 0.15f, z), plateW, plateH);
+            SetPlate(p.Root, p, false, t, style, new Vector3(x + plateShift, y - 0.15f, z), plateW, plateH);
         }
 
         /// <summary>The plate under a text (none for style 0), at `at` under parent, w by h: cut from the stock
@@ -1329,10 +1397,12 @@ namespace HsPuzzleBridge
                 // the first two (an anomaly's), where a second hero power would be. Trinkets get the gold cost gem
                 // too (the stock page gives them none): every icon of the grid shows one, alike, and the row
                 // re-binds the second hero power's icon and hover card from this model anyway (seen 2026-10-15).
-                HeroPower = Card(e.HeroPowers, 0, SpellType.COIN_MANA_GEM),
-                DualHeroPower = Card(e.HeroPowers, 1, SpellType.COIN_MANA_GEM),
-                Trinket1 = Card(e.Trinkets, 0, SpellType.COIN_MANA_GEM),
-                Trinket2 = Card(e.Trinkets, 1, SpellType.COIN_MANA_GEM),
+                // Each with its tags at the game's end (counters, alternate texts, costs: e.TagsOf), as tag overrides
+                // the slots' cards apply (BindCard turns that on).
+                HeroPower = Card(e.HeroPowers, 0, SpellType.COIN_MANA_GEM, e.TagsOf("h0")) ?? HeroOwnPower(e.Hero),
+                DualHeroPower = Card(e.HeroPowers, 1, SpellType.COIN_MANA_GEM, e.TagsOf("h1")),
+                Trinket1 = Card(e.Trinkets, 0, SpellType.COIN_MANA_GEM, e.TagsOf("t0")),
+                Trinket2 = Card(e.Trinkets, 1, SpellType.COIN_MANA_GEM, e.TagsOf("t1")),
             };
         }
 
@@ -1351,11 +1421,14 @@ namespace HsPuzzleBridge
             return spells;
         }
 
-        private static CardDataModel Card(List<string> ids, int i, SpellType? spell)
+        private static CardDataModel Card(List<string> ids, int i, SpellType? spell, List<KeyValuePair<int, int>> tags = null)
         {
             if (i >= ids.Count || string.IsNullOrEmpty(ids[i])) return null;
             var card = new CardDataModel { CardId = ids[i], Premium = TAG_PREMIUM.NORMAL };
             if (spell.HasValue) card.SpellTypes = new DataModelList<SpellType> { spell.Value };
+            if (tags != null)
+                foreach (var t in tags)
+                    card.GameTagOverrides.Add(new GameTagValueDataModel { GameTag = (GAME_TAG)t.Key, Value = t.Value });
             return card;
         }
 

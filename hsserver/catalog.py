@@ -28,13 +28,24 @@ log = logging.getLogger("catalog")
 CACHE_NAME = ".catalog.json"
 ROWS_NAME = ".catalog.txt"  # the same games as rows (see row()), read by the plugin's Replays page
 SEED_NAME = ".catalog.seed.txt"  # made-up rows (tools/seed_catalog.py), listed with the real games
-CACHE_VERSION = 8  # 4: spectated games left out of recordings (recording.watching_another); 5: place only when over;
-# 6: the 2x2 grid of hero powers and trinkets (see icon_grid); 7: the final board's keywords; 8: the final hand
+CACHE_VERSION = 11  # 4: spectated games left out of recordings (recording.watching_another); 5: place only when over;
+# 6: the 2x2 grid of hero powers and trinkets (see icon_grid); 7: the final board's keywords; 8: the final hand;
+# 9: a hero power traded away by a quest (traded_hero_power); 10: its quest's goal; 11: the icons' text tags
 HANDSHAKE, POWER_HISTORY, ENTITY_CHOICES, BG_RATING_CHANGE = 168, 19, 17, 34
 TAG_TURN, TAG_HERO_ENTITY, TAG_PLAYER_LEADERBOARD_PLACE = 20, 27, 1373
 TAG_PREMIUM, TAG_HEALTH, TAG_ATK, TAG_DAMAGE, TAG_ZONE, TAG_CONTROLLER, TAG_PLAYER_ID = 12, 45, 47, 44, 49, 50, 30
 TAG_CARDTYPE, TAG_ZONE_POSITION, ZONE_PLAY, ZONE_HAND, CARDTYPE_MINION = 202, 263, 1, 3, 4
 CARDTYPE_HERO_POWER, CARDTYPE_BATTLEGROUND_TRINKET = 10, 44
+# A quest that trades a hero power away (see traded_hero_power); 1396 has no name in the client: a reward's quest.
+TAG_LAST_AFFECTED_BY, TAG_QUEST, TAG_REWARD_QUEST, TAG_BACON_IS_HEROPOWER_QUESTREWARD = 18, 462, 1396, 2706
+TAG_QUEST_PROGRESS_TOTAL = 535  # the {0} in a quest's text
+# The tags a card's text is built from (the client's CardTextBuilders read them off its EntityDef) that mean something
+# without the game around them, kept for the row's icons: TAG_SCRIPT_DATA_NUM_1..6, USE_ALTERNATE_CARD_TEXT,
+# CARD_NAME_DATA_1, SCORE_VALUE_1/2, QUEST_PROGRESS(_TOTAL), COST, TAVERN_SPELL_ATTACK/HEALTH_INCREASE,
+# DYNAMIC_KEYWORD1/2, ENTITY_ and PLAYER_TAG_THRESHOLD_TAG_ID/VALUE, POWERED_UP, BACON_EVOLUTION_CARD_TEXT_ADDITIONAL_
+# ATK/HEALTH. (CARDTEXT_ENTITY_* name other entities: no use in a row.)
+TEXT_TAGS = (2, 3, 2889, 2919, 2920, 2921, 955, 2890, 451, 453, 534, 535, 48, 3989, 3990, 4161, 4162,
+             2459, 2460, 1115, 1116, 386, 4711, 4712)
 # A minion's keywords as the stock Full Stats page shows them (BaconDisplay: taunt, divine shield, windfury, reborn,
 # stealth, poisonous, or else venomous), one letter each in the row.
 KEYWORDS = (("T", 190), ("D", 194), ("W", 189), ("R", 1085), ("S", 191), ("P", 363), ("V", 2853))
@@ -62,6 +73,11 @@ class Game:
     hero_powers: list[str] = field(default_factory=list)
     trinkets: list[str] = field(default_factory=list)
     hand: list[list] = field(default_factory=list)  # the hand the game ended with, as the board (spells: 0 attack/health)
+    # The quest that traded the hero power away, its reward and the quest's goal (see traded_hero_power).
+    hp_quest: list[str] = field(default_factory=list)
+    # The icons' TEXT_TAGS at the end, by slot (h0, h1, t0, t1, q, r; see row): [tag, value] pairs, so their hover
+    # cards show the game's end (counters, alternate texts, costs).
+    icon_tags: dict[str, list[list[int]]] = field(default_factory=dict)
 
 
 def is_local_session(rec: Recording) -> bool:
@@ -134,9 +150,22 @@ def read_game(path: Path) -> Game | None:
     in_play = sorted((e for e in gs.entities.values()
                       if e.tags.get(TAG_CONTROLLER) == pid and e.tags.get(TAG_ZONE) == ZONE_PLAY),
                      key=lambda e: e.id)
-    hero_powers, trinkets = icon_grid(
+    top, bottom = icon_grid(
         [e for e in in_play if e.tags.get(TAG_CARDTYPE) == CARDTYPE_HERO_POWER],
         [e for e in in_play if e.tags.get(TAG_CARDTYPE) == CARDTYPE_BATTLEGROUND_TRINKET], was_hero_power, path.name)
+    hp_quest: list[str] = []
+    slots = {f"h{i}": e for i, e in enumerate(top)} | {f"t{i}": e for i, e in enumerate(bottom)}
+    if not top:
+        hp, quest, reward = traded_hero_power(gs, pid, was_hero_power)
+        if hp:
+            top, slots["h0"] = [hp], hp
+        if quest:
+            total = quest.tags.get(TAG_QUEST_PROGRESS_TOTAL)
+            hp_quest = [quest.card_id] + ([reward.card_id] + ([str(total)] if total else []) if reward else [])
+            slots["q"] = quest
+        if reward:
+            slots["r"] = reward
+    icon_tags = {slot: tags for slot, e in slots.items() if (tags := text_tags(e))}
     start_ms = next((p.ms for p in rec.packets if p.dir == "C2S" and p.type == HANDSHAKE), rec.packets[0].ms)
     return Game(
         id=game_id(path),
@@ -149,10 +178,37 @@ def read_game(path: Path) -> Game | None:
         rating=rating,
         change=change,
         board=board,
-        hero_powers=hero_powers,
-        trinkets=trinkets,
+        hero_powers=[e.card_id for e in top],
+        trinkets=[e.card_id for e in bottom],
         hand=[card_entry(e) for e in hand[:10]],
+        hp_quest=hp_quest,
+        icon_tags=icon_tags,
     )
+
+
+def text_tags(e) -> list[list[int]]:
+    """The entity's TEXT_TAGS as [tag, value] pairs, in TEXT_TAGS' order."""
+    return [[t, e.tags[t]] for t in TEXT_TAGS if t in e.tags]
+
+
+def traded_hero_power(gs: GameState, pid, was_hero_power: set[int]):
+    """A game that ends with no hero power in play: (the player's last one, and if a quest traded it away, that quest
+    and its reward), entities or None. Sire Denathrius's "Whodunit?" (2026-10-27): it offers two quests,
+    each with a reward pointing back at it (tag 1396, unnamed in the client) and marked as the hero power's
+    (BACON_IS_HEROPOWER_QUESTREWARD); completing the chosen one (the hero power's LAST_AFFECTED_BY) removes the hero
+    power, and its reward takes the slot."""
+    gone = [gs.entities[i] for i in sorted(was_hero_power) if i in gs.entities
+            and gs.entities[i].tags.get(TAG_CONTROLLER) == pid and gs.entities[i].card_id
+            and gs.entities[i].tags.get(TAG_CARDTYPE) == CARDTYPE_HERO_POWER]
+    if not gone:
+        return None, None, None
+    hp = gone[-1]
+    quest = gs.entities.get(hp.tags.get(TAG_LAST_AFFECTED_BY, -1))
+    if quest is None or not quest.tags.get(TAG_QUEST) or not quest.card_id:
+        return hp, None, None
+    reward = next((e for e in gs.entities.values() if e.tags.get(TAG_REWARD_QUEST) == quest.id
+                   and e.tags.get(TAG_BACON_IS_HEROPOWER_QUESTREWARD) and e.card_id), None)
+    return hp, quest, reward
 
 
 def card_entry(e) -> list:
@@ -167,8 +223,8 @@ def keywords(tags: dict) -> str:
     return letters.replace("V", "") if "P" in letters else letters
 
 
-def icon_grid(hero_powers: list, trinkets: list, was_hero_power: set[int], name: str = "") -> tuple[list[str], list[str]]:
-    """The row's 2x2 icon grid as (top cells, bottom cells) of card ids, from the hero powers and trinkets in play
+def icon_grid(hero_powers: list, trinkets: list, was_hero_power: set[int], name: str = "") -> tuple[list, list]:
+    """The row's 2x2 icon grid as (top cells, bottom cells) of entities, from the hero powers and trinkets in play
     at the end (entities, in creation order). The top cells are the hero power ones: a trinket that replaced a hero
     power (Marin the Manager's, 2026-10-15: entity 121 changed from BG30_HERO_304p to a trinket) stays in its hero
     power's place, as the stock stats page shows its BACON_PAST_GAME_TRINKET_HEROPOWER in the hero power slot.
@@ -180,16 +236,30 @@ def icon_grid(hero_powers: list, trinkets: list, was_hero_power: set[int], name:
     if len(top) > 2:
         log.info("%s: %d icons, the grid shows 4; left out: %s", name, len(top) + len(picked[:2]),
                  ", ".join(e.card_id for e in top[2:]))
-    return [e.card_id for e in top[:2]], [e.card_id for e in picked[:2]]
+    return top[:2], picked[:2]
 
 
 def row(g: Game) -> str:
-    """id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand: rating/change empty when
-    unknown; board and hand comma-separated card:attack:health:golden[:keywords]; hero powers and trinkets
-    comma-separated: the icon grid's top and bottom cells (see icon_grid; a top cell may hold a trinket)."""
+    """id|start|hero|place|turns|minutes|rating|change|board|hero powers|trinkets|hand|hero power quest|icon tags:
+    rating/change empty when unknown; board and hand comma-separated card:attack:health:golden[:keywords]; hero
+    powers and trinkets comma-separated: the icon grid's top and bottom cells (see icon_grid; a top cell may hold a
+    trinket); then the quest and reward that traded the hero power away and the quest's goal (see
+    traded_hero_power), comma-separated, or empty; then the icons' text tags as slot:tag=value;tag=value, comma-
+    separated (slots h0, h1 the top cells, t0, t1 the bottom ones, q and r that quest and reward)."""
+    tags = ",".join(f"{slot}:" + ";".join(f"{t}={v}" for t, v in pairs) for slot, pairs in g.icon_tags.items())
     return (f"{g.id}|{g.start}|{g.hero}|{g.place}|{g.turns}|{g.minutes}|"
             f"{'' if g.rating is None else g.rating}|{'' if g.change is None else g.change}|"
-            + _cards(g.board) + f"|{','.join(g.hero_powers)}|{','.join(g.trinkets)}|" + _cards(g.hand))
+            + _cards(g.board) + f"|{','.join(g.hero_powers)}|{','.join(g.trinkets)}|" + _cards(g.hand)
+            + f"|{','.join(g.hp_quest)}|{tags}")
+
+
+def _parse_tags(field: str) -> dict[str, list[list[int]]]:
+    out = {}
+    for item in field.split(","):
+        slot, _, pairs = item.partition(":")
+        if slot and pairs:
+            out[slot] = [[int(t), int(v)] for t, _, v in (p.partition("=") for p in pairs.split(";") if p)]
+    return out
 
 
 def _cards(cards: list[list]) -> str:
@@ -210,7 +280,9 @@ def parse_row(line: str) -> Game | None:
         return Game(id=f[0], start=f[1], hero=f[2], place=int(f[3]), turns=int(f[4]), minutes=int(f[5]),
                     rating=int(f[6]) if f[6] else None, change=int(f[7]) if f[7] else None, board=_parse_cards(f[8]),
                     hero_powers=[x for x in f[9].split(",") if x], trinkets=[x for x in f[10].split(",") if x],
-                    hand=_parse_cards(f[11]) if len(f) > 11 else [])
+                    hand=_parse_cards(f[11]) if len(f) > 11 else [],
+                    hp_quest=[x for x in f[12].split(",") if x] if len(f) > 12 else [],
+                    icon_tags=_parse_tags(f[13]) if len(f) > 13 else {})
     except ValueError:
         return None
 

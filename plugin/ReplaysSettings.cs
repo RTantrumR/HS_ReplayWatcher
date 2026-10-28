@@ -1,45 +1,34 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using HarmonyLib;
+using Hearthstone.UI;
 using UnityEngine;
 
 namespace HsPuzzleBridge
 {
     /// <summary>
-    /// The strip above the replay rows: how many games keep their recordings (5–50, Library.KeepGames), with the
-    /// storage that takes. The slider is a copy of the Options menu's master volume slider (ScrollbarControl, its
-    /// thumb, bones, press element, drag collider and label all inside it), taken from the prefab asset without
-    /// instantiating the menu. Lowering it below the games there are asks first (the game's own alert popup), then
-    /// runs the catalog scan, which deletes the oldest; after a new game the scan keeps the limit by itself.
+    /// The strip above the replay rows: the sort dropdown at its left (saved and imported; ReplaysSort.cs), the shown
+    /// view's size in the middle ("N games, X MB", from its folder's files; counted again only when the view's rows change), or the
+    /// empty list's line, the Import button in the imported view (ReplaysImport.cs), and the Settings button at its
+    /// right, which opens <see cref="ReplaysOptions"/> (how many recent games are kept, the remove prompts); the two
+    /// buttons carry an icon left of their label (a drawn gear; a drawn tray and arrow). The texts are
+    /// copies of the row's name text, as the rows' are.
     /// </summary>
     internal static partial class ReplaysUi
     {
-        private const string OptionsMenuPrefab = "OptionsMenu.prefab:a6e5621068fd7c8429475b3e1a1aa991";
-        private const float MbPerGame = 1.0f; // a full game (~33 min) is ~1.0 MB gzipped, see docs/recorder.md
-        private const int MinKept = 5, MaxKept = 50;
-
-        private static Transform _strip, _keepSliderT;
-        private static ScrollbarControl _keepSlider;
-        private static RowText _keepLabel, _keepValue;
-
-        private static int ToKept(float unit) => MinKept + Mathf.RoundToInt(Mathf.Clamp01(unit) * (MaxKept - MinKept));
-        private static float ToUnit(int kept) => (kept - MinKept) / (float)(MaxKept - MinKept);
+        private static Transform _strip, _settings, _importButton;
+        private static RowText _sizeText;
+        private static readonly Dictionary<ReplayLibrary.View, KeyValuePair<int, string>> _sizes =
+            new Dictionary<ReplayLibrary.View, KeyValuePair<int, string>>(); // view -> (its Version, the text)
 
         /// <summary>Real games on the page (the made-up rows of tools/seed_catalog.py aren't files).</summary>
-        private static int RealGames => ReplayLibrary.Recent.Entries.Count(e => !e.Id.Contains("_seed"));
+        internal static int RealGames => ReplayLibrary.Recent.Entries.Count(e => !e.Id.Contains("_seed"));
 
         private static void CreateStrip()
         {
             if (_rowsParent == null || _slot1 == null || _strip != null) return;
-            ScrollbarControl src = null;
-            try
-            {
-                var prefab = AssetLoader.Get().LoadAsset<GameObject>(OptionsMenuPrefab)?.Asset;
-                src = prefab != null ? prefab.GetComponentInChildren<OptionsMenu>(true)?.m_masterVolume : null;
-            }
-            catch (Exception e) { Plugin.Log.LogWarning("Replays settings: " + e.Message); }
-            if (src == null) { Plugin.Log.LogWarning("Replays settings: no volume slider in the Options menu"); return; }
-
             int layer = _slot1.gameObject.layer;
             _strip = new GameObject("ReplaysSettings").transform;
             _strip.SetParent(_rowsParent, false);
@@ -47,62 +36,184 @@ namespace HsPuzzleBridge
             _strip.localRotation = _slot1.localRotation;
             _strip.localScale = _slot1.localScale;
             _strip.gameObject.layer = layer;
-
-            var go = UnityEngine.Object.Instantiate(src.gameObject, _strip, false);
-            go.name = "KeepGamesSlider";
-            go.SetActive(true);
-            foreach (var t in go.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = layer;
-            _keepSliderT = go.transform;
-            _keepSlider = go.GetComponent<ScrollbarControl>();
-            // The slider's own label is the Options menu's (built for that window: blurry and stretched here under
-            // the slider's scale); the strip's texts are copies of the row's name text instead, as the rows' are.
-            var sliderLabel = Find(go.transform, "MasterVolumeLabel");
-            if (sliderLabel != null) sliderLabel.localScale = Vector3.zero;
             _stripTextSource = Find(_slot1, "HeroName");
-            if (_stripTextSource != null)
-            {
-                _keepLabel = NewText(_stripTextSource, "KeepGamesLabel", "Keep the last", _strip);
-                _keepValue = NewText(_stripTextSource, "KeepGamesValue", "", _strip);
-            }
-            else Plugin.Log.LogWarning("Replays settings: the stock row has no HeroName text; the strip has no texts");
-            _keepSlider.SetUpdateHandler(v => ShowKept(ToKept(v)));
-            _keepSlider.SetFinishHandler(OnKeptReleased);
-            _keepSlider.SetValue(ToUnit(Plugin.KeepGames.Value));
-            ShowKept(Plugin.KeepGames.Value);
+            if (_stripTextSource != null) _sizeText = NewText(_stripTextSource, "ViewSize", "", _strip);
+            else Plugin.Log.LogWarning("Replays strip: the stock row has no HeroName text; the strip has no texts");
             PlaceStrip(Layout.Current);
-            CreateSwitch();
+            CreateViewControls();
+            _settings = StripButton("SettingsButton", "Settings", ReplaysOptions.Show, GearIcon);
+            _importButton = StripButton("ImportButton", "Import", PickImport, ImportIcon);
+            CreateSortDropdown();
+            ShowView();
             ColourStrip();
+        }
+
+        /// <summary>A copy of the lobby's stats button on the strip, its own release actions taken off, an icon left of
+        /// its label (made in the label's colour).</summary>
+        private static Transform StripButton(string name, string text, Action onRelease, Func<Color, GameObject> icon)
+        {
+            if (_strip == null || _statsButton == null) return null;
+            var button = WidgetInstance.Create(AssetOf(_statsButton));
+            button.name = name;
+            button.transform.SetParent(_strip, false);
+            button.gameObject.layer = _strip.gameObject.layer;
+            button.RegisterReadyListener(_ =>
+            {
+                StripReleasedActions(button.gameObject);
+                var b = button.GetComponentInChildren<UIBButton>(true);
+                b.SetText(text);
+                b.AddEventListener(UIEventType.RELEASE, e => onRelease());
+                // On the part the hover wiggle and the press turn and move (the label rides it too).
+                AddStripIcon(b.m_RootObject != null ? b.m_RootObject.transform : button.transform, b.m_ButtonText, icon);
+            });
+            PlaceStrip(Layout.Current);
+            return button.transform;
+        }
+
+        // ------------------------------------------------------------------ the buttons' icons
+
+        private sealed class StripIcon
+        {
+            public UberText Label;
+            public Vector3 LabelHome; // the label's own place, before it moved over for the icon
+            public Transform Icon;
+            public float Aspect; // the icon's width per height
+            public bool Measured;
+            // Measured with the button at rest, in its moving part's units (the icon's parent): the drawn label's
+            // top-face centre, its width and height, the label's own place there, the screen's right, the icon's turn.
+            public Vector3 Centre, LabelAt, Right;
+            public float Width, Height;
+            public Quaternion Turn;
+        }
+
+        private static readonly List<StripIcon> _stripIcons = new List<StripIcon>();
+
+        private static void AddStripIcon(Transform anchor, UberText label, Func<Color, GameObject> make)
+        {
+            if (label == null || make == null) return;
+            var colour = ParseColor(Layout.Current.StripIconColor, label.TextColor);
+            var go = make(colour);
+            if (go == null) return;
+            go.transform.SetParent(anchor, false);
+            LayerUtils.SetLayer(go, anchor.gameObject.layer);
+            var size = go.GetComponent<MeshFilter>().sharedMesh.bounds.size;
+            _stripIcons.Add(new StripIcon
+            {
+                Label = label, LabelHome = label.transform.localPosition, Icon = go.transform,
+                Aspect = size.z > 0f ? size.x / size.z : 1f,
+            });
+            Plugin.Log.LogInfo($"Replays strip: {anchor.name} icon in {colour} (label {label.TextColor})");
+        }
+
+        /// <summary>Per frame: each icon and its label centred together where the label was, the icon
+        /// StripIconSize of the drawn label's height, StripIconGap of that before the label. Everything is kept in
+        /// the units of the button's moving part (the icon's parent), so the hover wiggle and the press carry both;
+        /// the drawn label is measured once, at its own place with the button at rest, so moving it never feeds back
+        /// into the measure.</summary>
+        private static void PlaceStripIcons()
+        {
+            var l = Layout.Current;
+            foreach (var si in _stripIcons)
+            {
+                if (si.Icon == null || si.Label == null || !si.Label.gameObject.activeInHierarchy) continue;
+                var anchor = si.Icon.parent;
+                if (!si.Measured)
+                {
+                    si.Label.transform.localPosition = si.LabelHome;
+                    Bounds text;
+                    try { text = si.Label.GetTextBounds(); }
+                    catch (Exception e) { Plugin.Log.LogDebug("Replays strip icon: " + e.Message); continue; }
+                    bool drawn = text.size.x > 0.01f && text.size.z > 0.01f;
+                    if (si.Icon.gameObject.activeSelf != drawn) si.Icon.gameObject.SetActive(drawn);
+                    if (!drawn) continue;
+                    float unit = Mathf.Abs(anchor.lossyScale.x);
+                    if (unit <= 0f) continue;
+                    si.Centre = anchor.InverseTransformPoint(new Vector3(text.center.x, text.max.y, text.center.z));
+                    si.LabelAt = anchor.InverseTransformPoint(si.Label.transform.position);
+                    si.Right = anchor.InverseTransformDirection(Vector3.right).normalized;
+                    si.Width = text.size.x / unit;
+                    si.Height = text.size.z / unit;
+                    si.Turn = Quaternion.Inverse(anchor.rotation);
+                    si.Measured = true;
+                }
+                float h = l.StripIconSize * si.Height, w = h * si.Aspect, gap = l.StripIconGap * h;
+                si.Label.transform.position = anchor.TransformPoint(si.LabelAt + si.Right * ((w + gap) / 2f));
+                si.Icon.localPosition = si.Centre - si.Right * ((si.Width + gap) / 2f);
+                si.Icon.localRotation = si.Turn;
+                si.Icon.localScale = Vector3.one * h;
+            }
+        }
+
+        /// <summary>The import glyph, a unit tall.</summary>
+        private static GameObject ImportIcon(Color colour)
+        {
+            var mesh = Glyph.Build("ImportIcon", Glyph.Import(Vector2.zero, 1f), wholeGradient: true, palette: Glyph.Plain(colour));
+            return IconObject("ImportIcon", mesh, GlyphMaterial());
+        }
+
+        /// <summary>The settings gear, drawn as the import glyph is, a unit tall. (2026-10-27: the bottom bar's own
+        /// gear, cut from its 38 px atlas cell with the pill keyed out, came out smudged.)</summary>
+        private static GameObject GearIcon(Color colour)
+        {
+            var mesh = Glyph.Build("GearIcon", Glyph.Gear(Vector2.zero, 1f), wholeGradient: true, palette: Glyph.Plain(colour));
+            return IconObject("GearIcon", mesh, GlyphMaterial());
+        }
+
+        private static GameObject IconObject(string name, Mesh mesh, Material material)
+        {
+            var go = new GameObject(name);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = material;
+            return go;
+        }
+
+        private static Material GlyphMaterial()
+        {
+            if (_glyphMaterial == null)
+                _glyphMaterial = new Material(Shader.Find("Sprites/Default")) { mainTexture = Texture2D.whiteTexture, name = "RowGlyph" };
+            return _glyphMaterial;
         }
 
         private static void PlaceStrip(Layout l)
         {
             if (_strip == null) return;
             _strip.localPosition = _slot1.localPosition;
-            if (_keepSliderT != null)
-            {
-                _keepSliderT.localPosition = new Vector3(l.SliderX, 1f, l.SliderZ);
-                _keepSliderT.localRotation = Quaternion.Euler(l.SliderRotX, l.SliderRotY, l.SliderRotZ);
-                _keepSliderT.localScale = new Vector3(l.SliderScale, 1f, l.SliderScale);
-            }
-            // The texts beside the slider's ends (its drawn extent, taken in the strip's units: the bones are the
-            // thumb's travel, well inside it), the label ending before it, the value starting after it, both on
-            // the track's line.
-            if (_keepSliderT != null)
-            {
-                var bounds = RendererBounds(_keepSliderT.gameObject);
-                float left = float.MaxValue, right = float.MinValue, z = 0f;
-                for (int i = 0; i < 8; i++)
+            PlaceStripText(_sizeText, l.SizeX, l.SizeZ, l.StripTextWidth, l, UberText.AlignmentOptions.Center);
+            PlaceStripButton(_settings, l.SettingsX, l.SettingsZ, l.SettingsScale);
+            PlaceStripButton(_importButton, l.ImportX, l.ImportZ, l.SettingsScale);
+            PlaceSortDropdown(l);
+        }
+
+        private static void PlaceStripButton(Transform button, float x, float z, float scale)
+        {
+            if (button == null || _statsButton == null) return;
+            button.localPosition = new Vector3(x, 1f, z);
+            button.rotation = _statsButton.transform.rotation;
+            float worldScale = _statsButton.transform.lossyScale.x * scale;
+            button.localScale = Vector3.one * (worldScale / Mathf.Abs(_strip.lossyScale.x));
+        }
+
+        /// <summary>The shown view's size, or null while its list is empty: its games' files added up, kept per view
+        /// until the view's rows change (a game saved, imported, removed, recorded or trimmed).</summary>
+        private static string ViewSize(ReplayLibrary.View view)
+        {
+            if (_sizes.TryGetValue(view, out var known) && known.Key == view.Version) return known.Value;
+            string folder = ReplayLibrary.FolderOf(view);
+            int games = 0;
+            long bytes = 0;
+            if (folder != null)
+                foreach (var e in view.Entries)
                 {
-                    var corner = new Vector3((i & 1) == 0 ? bounds.min.x : bounds.max.x, (i & 2) == 0 ? bounds.min.y : bounds.max.y,
-                                             (i & 4) == 0 ? bounds.min.z : bounds.max.z);
-                    var local = _strip.InverseTransformPoint(corner);
-                    left = Mathf.Min(left, local.x);
-                    right = Mathf.Max(right, local.x);
-                    z += local.z / 8f;
+                    string path = ReplayLibrary.RecordingIn(folder, e.Id);
+                    if (path == null) continue; // a seeded row, or a file gone since the scan
+                    try { bytes += new FileInfo(path).Length; games++; }
+                    catch (Exception ex) { Plugin.Log.LogDebug("Replays size: " + ex.Message); }
                 }
-                PlaceStripText(_keepLabel, left - l.StripTextGap, z, l.StripTextWidth, l, UberText.AlignmentOptions.Right);
-                PlaceStripText(_keepValue, right + l.StripTextGap, z, l.StripTextWidth, l, UberText.AlignmentOptions.Left);
-            }
+            double mb = bytes / (1024.0 * 1024.0);
+            string text = games == 0 ? null
+                        : $"{games} {(games == 1 ? "game" : "games")}, {(mb < 10 ? mb.ToString("0.0") : mb.ToString("0"))} MB";
+            _sizes[view] = new KeyValuePair<int, string>(view.Version, text);
+            return text;
         }
 
         private static Transform _stripTextSource; // the stock row's HeroName text (the hidden first slot's)
@@ -167,11 +278,11 @@ namespace HsPuzzleBridge
         }
 
         /// <summary>The strip's texts in StripColor, else as the rows' length text (its LengthColor, else the
-        /// asset's own: the slider's own label was made for the Options menu's dark window).</summary>
+        /// asset's own).</summary>
         private static void ColourStrip()
         {
             var l = Layout.Current;
-            foreach (var t in new[] { _keepLabel, _keepValue, _emptyText, _logsEmptyText })
+            foreach (var t in new[] { _sizeText, _emptyText, _importedEmptyText })
                 if (t?.Text != null) t.Text.TextColor = ParseColor(l.StripColor, ParseColor(l.LengthColor, t.Default));
         }
 
@@ -181,39 +292,6 @@ namespace HsPuzzleBridge
             if (t?.T == null) return;
             t.T.gameObject.SetActive(on);
             if (t.Plate != null) t.Plate.SetActive(on);
-        }
-
-        private static void ShowKept(int kept)
-        {
-            if (_keepValue == null) return;
-            _keepValue.Text.Text = $"{kept} games, about {kept * MbPerGame:0} MB";
-            PlaceStrip(Layout.Current); // the plate follows the text's width
-        }
-
-        private static void OnKeptReleased()
-        {
-            int kept = ToKept(_keepSlider.GetValue());
-            _keepSlider.SetValue(ToUnit(kept));
-            int was = Plugin.KeepGames.Value;
-            if (kept == was) return;
-            int drop = RealGames - kept;
-            if (kept > was || drop <= 0)
-            {
-                Plugin.KeepGames.Value = kept;
-                return;
-            }
-            ConfirmPopup.Ask("Keep fewer replays?",
-                drop == 1 ? "The oldest replay will be deleted." : $"The {drop} oldest replays will be deleted.", "Delete",
-                () =>
-                {
-                    Plugin.KeepGames.Value = kept;
-                    ReplayServerProcess.ScanCatalog();
-                },
-                () =>
-                {
-                    _keepSlider.SetValue(ToUnit(Plugin.KeepGames.Value));
-                    ShowKept(Plugin.KeepGames.Value);
-                });
         }
     }
 }
