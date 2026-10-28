@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace HsPuzzleBridge
 {
-    [BepInPlugin("com.testhsserver.puzzlebridge", "HS Replay Watcher", "0.28.0")]
+    [BepInPlugin("com.testhsserver.puzzlebridge", "HS Replay Watcher", "0.29.0")]
     public class Plugin : BaseUnityPlugin
     {
         internal static Plugin Instance;
