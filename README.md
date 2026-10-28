@@ -18,11 +18,13 @@ jump to any moment, step through a fight, or watch at up to x4.
   buttons; **F10** hides it.
 - **Keys:** **Space** pause · **←/→** previous/next event · **Ctrl+←/→** previous/next turn ·
   **Enter/Backspace** one step · **+/−** speed.
-- **Three lists**, switched with the arrows on the page's title: **Replays** (your last 5 to 50 games, set in
+- **Three lists**, switched with the tabs on the page's title: **Recent** (your last 5 to 50 games, set in
   **Settings**), **Saved** and **Imported**. The **star** on a card saves that game to a folder of your choice,
   outside the Hearthstone folder, where it stays. Once that folder is chosen, your recent games are kept there
   too (in `Recent`, beside `Saved` and `Imported`). Saved and Imported can be sorted by date, place, hero or
   length.
+- **Hover a card's icons** to read them: hero powers, trinkets and quests as they ended the game, counters and
+  grown numbers included. A hero power a quest traded away shows with that quest and its reward.
 
 ## Sharing replays
 
