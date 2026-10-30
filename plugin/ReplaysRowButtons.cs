@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.IO;
 using UnityEngine;
@@ -84,10 +85,8 @@ namespace HsPuzzleBridge
             if (FolderPicker.Open) return;
             string path = ReplayLibrary.RecordingIn(ReplayLibrary.ImportedDir, id);
             if (path == null) { ReplayServerProcess.ScanCatalog(); return; }
-            string text = ReplayLibrary.SavedIds.Contains(id)
-                ? "The replay will be removed from your imported replays. Its starred copy stays in your saved replays."
-                : "The replay will be deleted from your imported replays.";
-            AskUnless(Plugin.NoAskRemove.Value, "Remove from imported?", text, "Remove", () =>
+            string text = Strings.T(ReplayLibrary.SavedIds.Contains(id) ? "popup.removeImported.starred" : "popup.removeImported.body");
+            AskUnless(Plugin.NoAskRemove.Value, Strings.T("popup.removeImported.title"), text, Strings.T("confirm.remove"), () =>
             {
                 try
                 {
@@ -97,7 +96,7 @@ namespace HsPuzzleBridge
                 catch (Exception e)
                 {
                     Plugin.Log.LogWarning($"Replays: couldn't remove {id}: {e.Message}");
-                    Alert("Couldn't remove the replay", e.Message);
+                    Alert(Strings.T("alert.cantRemove"), e.Message);
                     return;
                 }
                 ReplayLibrary.SetRow(ReplayLibrary.Imported, id, null);

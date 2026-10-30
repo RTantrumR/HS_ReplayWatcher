@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -41,8 +42,8 @@ namespace HsPuzzleBridge
             else Plugin.Log.LogWarning("Replays strip: the stock row has no HeroName text; the strip has no texts");
             PlaceStrip(Layout.Current);
             CreateViewControls();
-            _settings = StripButton("SettingsButton", "Settings", ReplaysOptions.Show, GearIcon);
-            _importButton = StripButton("ImportButton", "Import", PickImport, ImportIcon);
+            _settings = StripButton("SettingsButton", Strings.T("page.settings"), ReplaysOptions.Show, GearIcon);
+            _importButton = StripButton("ImportButton", Strings.T("page.import"), PickImport, ImportIcon);
             CreateSortDropdown();
             ShowView();
             ColourStrip();
@@ -210,8 +211,7 @@ namespace HsPuzzleBridge
                     catch (Exception ex) { Plugin.Log.LogDebug("Replays size: " + ex.Message); }
                 }
             double mb = bytes / (1024.0 * 1024.0);
-            string text = games == 0 ? null
-                        : $"{games} {(games == 1 ? "game" : "games")}, {(mb < 10 ? mb.ToString("0.0") : mb.ToString("0"))} MB";
+            string text = games == 0 ? null : Strings.N("page.size", games, Texts.Number(mb, mb < 10 ? "0.0" : "0"));
             _sizes[view] = new KeyValuePair<int, string>(view.Version, text);
             return text;
         }

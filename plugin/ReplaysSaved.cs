@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.IO;
 using Hearthstone.UI;
@@ -43,10 +44,9 @@ namespace HsPuzzleBridge
             if (_stripTextSource != null)
             {
                 // The empty saved list's line: another copy of the row's name text, where the slider is.
-                _emptyText = NewText(_stripTextSource, "SavedEmpty", "No saved replays yet. The star by a game's portrait saves it here.", _strip);
+                _emptyText = NewText(_stripTextSource, "SavedEmpty", Strings.T("page.empty.saved"), _strip);
                 ShowStripText(_emptyText, false);
-                _importedEmptyText = NewText(_stripTextSource, "ImportedEmpty",
-                                             "No imported replays yet. Import shared replays or a Power.log, or paste them here with Ctrl+V.", _strip);
+                _importedEmptyText = NewText(_stripTextSource, "ImportedEmpty", Strings.T("page.empty.imported"), _strip);
                 ShowStripText(_importedEmptyText, false);
             }
             PlaceViewControls(Layout.Current);
@@ -289,7 +289,7 @@ namespace HsPuzzleBridge
             catch (Exception e)
             {
                 Plugin.Log.LogWarning($"Replays: couldn't save {id}: {e.Message}");
-                Alert("Couldn't save the replay", e.Message);
+                Alert(Strings.T("alert.cantSave"), e.Message);
                 ReplayLibrary.RefreshIds();
                 return;
             }
@@ -299,9 +299,7 @@ namespace HsPuzzleBridge
 
         /// <summary>Ask for the folder of saved and imported games; then (if the folder is taken) go on.</summary>
         private static void PickSavedDir(Action then) =>
-            FolderPicker.Pick("Choose a folder for your Hearthstone replays (outside the Hearthstone folder).",
-                              "A folder window has opened (it may be behind the game). Choose a folder for your replays: " +
-                              "recent, saved and imported games are kept there, about 1 MB each.",
+            FolderPicker.Pick(Strings.T("folder.pick.description"), Strings.T("folder.pick.message"),
                               path => { if (UseSavedDir(path)) then(); });
 
         /// <summary>A picked folder becomes the saved folder unless it is inside the Hearthstone folder (updates and
@@ -313,18 +311,17 @@ namespace HsPuzzleBridge
             string key = Norm(full), hs = Norm(Path.Combine(Application.dataPath, ".."));
             if (key == hs || key.StartsWith(hs + Path.DirectorySeparatorChar))
             {
-                Alert("Choose another folder", "That folder is inside the Hearthstone folder, which game updates and " +
-                                               "repairs can clear. Please choose a folder outside it.");
+                Alert(Strings.T("folder.another.title"), Strings.T("folder.another.insideHs"));
                 return false;
             }
             if (key == Norm(Plugin.Recordings))
             {
-                Alert("Choose another folder", "That is where the recent replays are kept. Please choose another folder.");
+                Alert(Strings.T("folder.another.title"), Strings.T("folder.another.recent"));
                 return false;
             }
             if (key == Norm(Plugin.Logs))
             {
-                Alert("Choose another folder", "That is where converted Power.log games wait to be imported. Please choose another folder.");
+                Alert(Strings.T("folder.another.title"), Strings.T("folder.another.logs"));
                 return false;
             }
             Plugin.SavedDir.Value = full;
@@ -344,20 +341,18 @@ namespace HsPuzzleBridge
             string recentDir = Plugin.Recordings;
             if (ReplayLibrary.RecentIds.Contains(id) && ReplayLibrary.RecordingIn(recentDir, id) != null)
             {
-                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?",
-                          "The saved copy will be removed. The game stays in your recent replays.",
-                          "Remove", () => AfterUnsave(id, () => File.Delete(saved)));
+                AskUnless(Plugin.NoAskRemove.Value, Strings.T("popup.unsave.title"), Strings.T("popup.unsave.staysRecent"),
+                          Strings.T("confirm.remove"), () => AfterUnsave(id, () => File.Delete(saved)));
             }
             else if (ReplayLibrary.RecordingIn(ReplayLibrary.ImportedDir, id) != null)
             {
-                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?",
-                          "The saved copy will be removed. The game stays in your imported replays.",
-                          "Remove", () => AfterUnsave(id, () => File.Delete(saved)));
+                AskUnless(Plugin.NoAskRemove.Value, Strings.T("popup.unsave.title"), Strings.T("popup.unsave.staysImported"),
+                          Strings.T("confirm.remove"), () => AfterUnsave(id, () => File.Delete(saved)));
             }
             else if (FromImported(id))
             {
-                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?", "The replay will be moved back to your imported replays.",
-                          "Remove", () => AfterUnsave(id, () =>
+                AskUnless(Plugin.NoAskRemove.Value, Strings.T("popup.unsave.title"), Strings.T("popup.unsave.backToImported"),
+                          Strings.T("confirm.remove"), () => AfterUnsave(id, () =>
                           {
                               Directory.CreateDirectory(ReplayLibrary.ImportedDir);
                               File.Move(saved, Path.Combine(ReplayLibrary.ImportedDir, Path.GetFileName(saved)));
@@ -365,14 +360,14 @@ namespace HsPuzzleBridge
             }
             else if (ReplayLibrary.RecentIds.Count >= Plugin.KeepGames.Value)
             {
-                AskUnless(Plugin.NoAskRemove.Value && Plugin.NoAskDelete.Value, "Delete this replay?",
-                          $"Your recent replays are full ({Plugin.KeepGames.Value} games), so this replay will be deleted.",
-                          "Delete", () => AfterUnsave(id, () => File.Delete(saved)));
+                AskUnless(Plugin.NoAskRemove.Value && Plugin.NoAskDelete.Value, Strings.T("popup.deleteReplay.title"),
+                          Strings.N("popup.deleteReplay.body", Plugin.KeepGames.Value),
+                          Strings.T("options.delete"), () => AfterUnsave(id, () => File.Delete(saved)));
             }
             else
             {
-                AskUnless(Plugin.NoAskRemove.Value, "Remove from saved?", "The replay will be moved back to your recent replays.",
-                          "Remove", () => AfterUnsave(id, () => File.Move(saved, Path.Combine(recentDir, Path.GetFileName(saved)))));
+                AskUnless(Plugin.NoAskRemove.Value, Strings.T("popup.unsave.title"), Strings.T("popup.unsave.backToRecent"),
+                          Strings.T("confirm.remove"), () => AfterUnsave(id, () => File.Move(saved, Path.Combine(recentDir, Path.GetFileName(saved)))));
             }
         }
 
@@ -424,7 +419,7 @@ namespace HsPuzzleBridge
             catch (Exception e)
             {
                 Plugin.Log.LogWarning($"Replays: couldn't unsave {id}: {e.Message}");
-                Alert("Couldn't change the replay", e.Message);
+                Alert(Strings.T("alert.cantChange"), e.Message);
                 ReplayLibrary.RefreshIds();
                 return;
             }

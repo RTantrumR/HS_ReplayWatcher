@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +18,10 @@ namespace HsPuzzleBridge
     internal static partial class ReplaysUi
     {
         private const string OptionsMenuPrefab = "OptionsMenu.prefab:a6e5621068fd7c8429475b3e1a1aa991";
+        // The orders as the config stores them (tokens, English for good) and the keys of the labels the menu shows.
         private static readonly string[] SortNames = { "Newest first", "Oldest first", "Best place", "Hero name (A-Z)", "Longest" };
+        private static readonly string[] SortKeys = { "sort.newestFirst", "sort.oldestFirst", "sort.bestPlace", "sort.heroName", "sort.longest" };
+        private static string SortLabel(int order) => Strings.T(SortKeys[order]);
         private const string OldHeroSort = "By hero"; // the name before 2026-10-27, as a config may still hold it
         private const float SortTextLift = 1f; // world units towards the camera
         private static Transform _sortT;
@@ -65,10 +69,10 @@ namespace HsPuzzleBridge
                 text.FontSize = Mathf.RoundToInt(text.FontSize * l.SortFont);
             NarrowSort(go.transform, l.SortWidth);
             if (_sort.m_menu != null) _sortMenuHome = _sort.m_menu.transform.localPosition;
-            foreach (string name in SortNames) _sort.addItem(name);
+            for (int i = 0; i < SortKeys.Length; i++) _sort.addItem(SortLabel(i));
             // The box's text centred (the menu's items stay as they are), the view's order in it from the start.
             if (_sort.m_selectedItem?.m_text != null) _sort.m_selectedItem.m_text.Alignment = UberText.AlignmentOptions.Center;
-            _sort.setSelection(SortNames[SortOf(ReplayLibrary.Current)]);
+            _sort.setSelection(SortLabel(SortOf(ReplayLibrary.Current)));
             _sort.setItemChosenCallback((chosen, previous) => SortChosen(chosen as string));
             _sort.setMenuShownCallback(shown => { if (shown) LiftSortBars(); });
             PlaceSortDropdown(Layout.Current);
@@ -185,13 +189,14 @@ namespace HsPuzzleBridge
             catch { return card; }
         }
 
-        /// <summary>An order chosen in the dropdown: kept for the shown view, its list re-placed.</summary>
-        private static void SortChosen(string name)
+        /// <summary>An order chosen in the dropdown (by its label): kept for the shown view, its list re-placed.</summary>
+        private static void SortChosen(string label)
         {
             var view = ReplayLibrary.Current;
             var setting = view == ReplayLibrary.Saved ? Plugin.SortSaved : view == ReplayLibrary.Imported ? Plugin.SortImported : null;
-            if (setting == null || name == null || setting.Value == name) return;
-            setting.Value = name;
+            int order = label == null ? -1 : Array.FindIndex(SortKeys, k => Strings.T(k) == label);
+            if (setting == null || order < 0 || setting.Value == SortNames[order]) return;
+            setting.Value = SortNames[order];
             Resort(Current);
         }
 
@@ -202,7 +207,7 @@ namespace HsPuzzleBridge
             var view = ReplayLibrary.Current;
             bool on = view == ReplayLibrary.Saved || view == ReplayLibrary.Imported;
             _sortT.gameObject.SetActive(on);
-            if (on) _sort.setSelection(SortNames[SortOf(view)]);
+            if (on) _sort.setSelection(SortLabel(SortOf(view)));
         }
 
         /// <summary>A set's rows put in its view's order: places worked out again, built rows moved, the scroll's

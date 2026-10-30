@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Globalization;
 
@@ -12,8 +13,9 @@ namespace HsPuzzleBridge
         {
             try
             {
-                string name = Localization.GetLocaleName();
-                var culture = Localization.GetCultureInfo();
+                string name = global::Localization.GetLocaleName();
+                var locale = global::Localization.GetLocale();
+                var culture = global::Localization.GetCultureInfo();
                 string tier = GameStrings.Get("GAMEPLAY_BACON_TAVERN_TIER");
                 string one = GameStrings.FormatLocalizedStringWithPlurals("{0} |4(turn,turns)", GameStrings.MakePlurals(1), 1);
                 string two = GameStrings.FormatLocalizedStringWithPlurals("{0} |4(turn,turns)", GameStrings.MakePlurals(2), 2);
@@ -22,8 +24,9 @@ namespace HsPuzzleBridge
                 string pl = when.ToString("d MMM, HH:mm", new CultureInfo("pl-PL"));
                 string ja = when.ToString("M月d日 HH:mm", new CultureInfo("ja-JP"));
                 string number = (12.5).ToString("0.0", new CultureInfo("de-DE"));
-                Plugin.Log.LogInfo($"Locale probe: client {name ?? "(null)"} = {Localization.GetLocale()}, culture {culture?.Name ?? "(null)"}; " +
-                                   $"tavern tier \"{tier}\"; plurals \"{one}\" / \"{two}\"; dates de \"{de}\", pl \"{pl}\", ja \"{ja}\"; number de {number}");
+                Plugin.Log.LogInfo($"Locale probe: client {name ?? "(null)"} = {locale}, culture {culture?.Name ?? "(null)"}; " +
+                                   $"tavern tier \"{tier}\"; plurals \"{one}\" / \"{two}\"; dates de \"{de}\", pl \"{pl}\", ja \"{ja}\"; number de {number}; " +
+                                   $"plugin language {Language.Describe()}");
             }
             catch (Exception e)
             {

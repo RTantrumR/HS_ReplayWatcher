@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -52,7 +53,8 @@ namespace HsPuzzleBridge
         private static readonly Rect TabFaceSrc = new Rect(112, 20, 250, 18), TabEdgeSrc = new Rect(400, 77, 220, 10);
         private const float TabPaintedHalfW = 210f; // 203 measured, from a middle the title only roughly marks
 
-        private static readonly string[] TabNames = { "Recent", "Saved", "Imported" };
+        private static readonly string[] TabNames = { "Recent", "Saved", "Imported" }; // object names
+        private static readonly string[] TabKeys = { "page.tab.recent", "page.tab.saved", "page.tab.imported" };
         private static Transform _tabFrame, _tabPanel;
         private static readonly UberText[] _tabTexts = new UberText[3];
         private static readonly bool[] _tabHover = new bool[3];
@@ -64,7 +66,7 @@ namespace HsPuzzleBridge
         private static bool HasTabs => _tabsBuilt;
 
         /// <summary>The label the middle tab (the page's own title text) shows.</summary>
-        private static string MiddleTabName => TabNames[1];
+        private static string MiddleTabName => Strings.T(TabKeys[1]);
 
         /// <summary>The tabs, from the frame's texture; false when the frame isn't as expected (the arrows then).</summary>
         private static bool CreateTabs()
@@ -99,7 +101,7 @@ namespace HsPuzzleBridge
                 element.AddEventListener(UIEventType.ROLLOVER, e => { _tabHover[view] = true; ColourTabs(); });
                 element.AddEventListener(UIEventType.ROLLOUT, e => { _tabHover[view] = false; ColourTabs(); });
                 _tabHits[i] = hit.transform;
-                _tabTexts[i] = i == 1 ? _title : CopyTitle("ReplayTabText" + TabNames[i], TabNames[i]);
+                _tabTexts[i] = i == 1 ? _title : CopyTitle("ReplayTabText" + TabNames[i], Strings.T(TabKeys[i]));
             }
             _title.GameStringLookup = false;
             _title.Text = MiddleTabName;

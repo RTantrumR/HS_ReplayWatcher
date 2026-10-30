@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -57,18 +58,18 @@ namespace HsPuzzleBridge
         public sealed class View
         {
             public readonly string Name;
-            public readonly string Title; // the page's title while this view is shown
-            public readonly string Label; // the view switch's text while this view is the next one
+            public readonly string TitleKey; // the page's title while this view is shown (a catalog key)
+            public string Title => Strings.T(TitleKey);
             public readonly List<Entry> Entries = new List<Entry>();
             public int Version; // bumped whenever Entries change (the page rebuilds that view's rows)
             public bool Loaded;
             public string RowsText;
-            public View(string name, string title, string label) { Name = name; Title = title; Label = label; }
+            public View(string name, string titleKey) { Name = name; TitleKey = titleKey; }
         }
 
-        public static readonly View Recent = new View("recent", "Replays", "Recent replays"),
-                                    Saved = new View("saved", "Saved replays", "Saved replays"),
-                                    Imported = new View("imported", "Imported replays", "Imported replays");
+        public static readonly View Recent = new View("recent", "page.title.recent"),
+                                    Saved = new View("saved", "page.title.saved"),
+                                    Imported = new View("imported", "page.title.imported");
         /// <summary>The page's views, in the switch's order (after the views: static fields start in order).</summary>
         public static readonly View[] Views = { Recent, Saved, Imported };
         /// <summary>The view on the page.</summary>
@@ -211,7 +212,7 @@ namespace HsPuzzleBridge
             if (_watchId != null) return;
             if (!BattleNet.IsConnected() || GameMgr.Get().IsFindingGame())
             {
-                Fail("can't start a game right now");
+                Fail("library.cantStart");
                 return;
             }
             ReplayServerProcess.EnsureRunning();
@@ -231,7 +232,7 @@ namespace HsPuzzleBridge
                 if (now - _watchStartedAt > LoadWaitSeconds)
                 {
                     _watchId = null;
-                    Fail("the replay took too long to load (see BepInEx/replay_server.log)");
+                    Fail("library.tooLong");
                     ReplayServerProcess.Stop("the replay took too long to load");
                 }
                 else
@@ -387,7 +388,7 @@ namespace HsPuzzleBridge
             {
                 _watchId = null;
                 head.TryGetValue("error", out string error);
-                Fail("the replay failed to load: " + error);
+                Fail("library.failed", error);
                 ReplayServerProcess.Stop("the replay failed to load");
             }
             else if (state == "ready")
@@ -400,11 +401,12 @@ namespace HsPuzzleBridge
             }
         }
 
-        private static void Fail(string message)
+        /// <summary>A failure shown in the game's status line (key: a catalog key; the log keeps the English).</summary>
+        private static void Fail(string key, params object[] args)
         {
-            LastError = message;
-            Plugin.Log.LogWarning("Replays: " + message);
-            try { UIStatus.Get()?.AddError("Replays: " + message); } catch (Exception e) { Plugin.Log.LogWarning("UIStatus: " + e.Message); }
+            LastError = Strings.En(key, args);
+            Plugin.Log.LogWarning(LastError);
+            try { UIStatus.Get()?.AddError(Strings.F(key, args)); } catch (Exception e) { Plugin.Log.LogWarning("UIStatus: " + e.Message); }
         }
 
         private static Dictionary<string, string> Fields(string reply, out string rest)

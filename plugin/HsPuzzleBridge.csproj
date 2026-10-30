@@ -26,6 +26,11 @@
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
   </ItemGroup>
 
+  <!-- The text catalogs, one per language, inside the DLL (the installer ships the DLL alone). -->
+  <ItemGroup>
+    <EmbeddedResource Include="lang\*.json" Exclude="lang\xxXX.json" />
+  </ItemGroup>
+
   <!-- Compile against the live Unity 6 client's own assemblies; never copied to output. -->
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
@@ -34,6 +39,10 @@
     </Reference>
     <Reference Include="blizzard.bgsclient">
       <HintPath>$(HearthstoneManagedPath)blizzard.bgsclient.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(HearthstoneManagedPath)Newtonsoft.Json.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Blizzard.T5.Localization">

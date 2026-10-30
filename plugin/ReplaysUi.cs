@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -25,7 +26,6 @@ namespace HsPuzzleBridge
     /// </summary>
     internal static partial class ReplaysUi
     {
-        private const string ButtonText = "Replays", WatchText = "Watch";
         private const float ButtonDropWorld = 5.4f; // a button and a gap lower (0.061 world units per px at 1080p)
 
         private static WidgetInstance _statsButton, _replaysButton, _statsFrame, _page;
@@ -71,7 +71,7 @@ namespace HsPuzzleBridge
                     var button = _replaysButton.GetComponentInChildren<UIBButton>(true);
                     if (button == null) { Plugin.Log.LogWarning("Replays button: no UIBButton in the instance"); return; }
                     StripReleasedActions(_replaysButton.gameObject);
-                    button.SetText(ButtonText);
+                    button.SetText(Strings.T("lobby.replays"));
                     button.AddEventListener(UIEventType.RELEASE, e => OpenPage());
                     Plugin.Log.LogInfo("Replays button ready");
                 }
@@ -953,9 +953,9 @@ namespace HsPuzzleBridge
             if (heroName != null)
             {
                 parts.Name = NewText(heroName, null, game.HeroName);
-                parts.PlaceText = NewText(heroName, "ReplayPlace", entry.Place > 0 ? Ordinal(entry.Place) + " place" : "");
-                parts.Date = NewText(heroName, "ReplayDate", DateText(entry));
-                parts.Length = NewText(heroName, "ReplayLength", $"{entry.Turns} turns, {entry.Minutes} min");
+                parts.PlaceText = NewText(heroName, "ReplayPlace", entry.Place > 0 ? Texts.Place(entry.Place) : "");
+                parts.Date = NewText(heroName, "ReplayDate", Texts.Date(entry.Start));
+                parts.Length = NewText(heroName, "ReplayLength", Strings.N("row.length", entry.Turns, entry.Minutes));
             }
             SetUpHand(parts, entry, heroName);
 
@@ -1365,15 +1365,6 @@ namespace HsPuzzleBridge
         internal static Color ParseColor(string hex, Color fallback) =>
             !string.IsNullOrEmpty(hex) && ColorUtility.TryParseHtmlString(hex, out var c) ? c : fallback;
 
-        private static string DateText(ReplayLibrary.Entry e) =>
-            DateTime.TryParse(e.Start, System.Globalization.CultureInfo.InvariantCulture,
-                              System.Globalization.DateTimeStyles.None, out var start)
-                ? start.ToString("MMM d, HH:mm", System.Globalization.CultureInfo.InvariantCulture)
-                : e.Start;
-
-        private static string Ordinal(int n) =>
-            n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : n % 10 == 1 ? "st" : n % 10 == 2 ? "nd" : n % 10 == 3 ? "rd" : "th");
-
         private static BaconPastGameStatsDataModel PastGame(ReplayLibrary.Entry e)
         {
             string name = e.Hero;
@@ -1450,7 +1441,7 @@ namespace HsPuzzleBridge
             {
                 StripReleasedActions(button.gameObject);
                 var b = button.GetComponentInChildren<UIBButton>(true);
-                b.SetText(WatchText);
+                b.SetText(Strings.T("lobby.watch"));
                 b.AddEventListener(UIEventType.RELEASE, e =>
                 {
                     HidePage();
