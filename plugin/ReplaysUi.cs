@@ -156,6 +156,7 @@ namespace HsPuzzleBridge
             catch (Exception e) { Plugin.Log.LogWarning("Replays settings: " + e); }
             _pageReady = true;
             Plugin.Log.LogInfo("Replays page ready");
+            LocaleProbe.Log();
             if (_pageWanted) ShowPage();
         }
 

@@ -36,6 +36,10 @@
       <HintPath>$(HearthstoneManagedPath)blizzard.bgsclient.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Blizzard.T5.Localization">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.Localization.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Blizzard.T5.Core">
       <HintPath>$(HearthstoneManagedPath)Blizzard.T5.Core.dll</HintPath>
       <Private>false</Private>
