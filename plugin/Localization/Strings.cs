@@ -126,30 +126,53 @@ namespace HsPuzzleBridge.Localization
             _loadedFor = code;
         }
 
-        /// <summary>The embedded catalog for a code, or null (logged) when it is missing or unreadable.</summary>
+        /// <summary>The catalog for a code: a file BepInEx\plugins\lang\&lt;code&gt;.json first (a translator's or the
+        /// fit test's pseudo-locale, without a build), else the one embedded in the DLL; null (logged) when there is
+        /// neither or it is unreadable.</summary>
+        private static string FileFor(string code) => Path.Combine(Path.Combine(BepInEx.Paths.PluginPath, "lang"), code + ".json");
+
+        /// <summary>Whether a catalog file for the code sits beside the DLL (BepInEx\plugins\lang\&lt;code&gt;.json).</summary>
+        public static bool HasFile(string code)
+        {
+            try { return !string.IsNullOrEmpty(code) && code.IndexOfAny(Path.GetInvalidFileNameChars()) < 0 && File.Exists(FileFor(code)); }
+            catch { return false; }
+        }
+
         private static Dictionary<string, string> Load(string code)
         {
-            var asm = Assembly.GetExecutingAssembly();
-            string suffix = ".lang." + code + ".json";
-            string name = null;
-            foreach (string n in asm.GetManifestResourceNames())
-                if (n.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) { name = n; break; }
-            if (name == null)
-            {
-                Plugin.Log.LogWarning($"Strings: no catalog {code} in the plugin");
-                return null;
-            }
+            string file = FileFor(code);
+            string from = null;
+            string json = null;
             try
             {
-                using (var stream = asm.GetManifestResourceStream(name))
-                using (var reader = new StreamReader(stream, Encoding.UTF8))
+                if (File.Exists(file))
                 {
-                    var table = JsonConvert.DeserializeObject<Dictionary<string, string>>(reader.ReadToEnd())
-                                ?? new Dictionary<string, string>();
-                    var strict = new Dictionary<string, string>(table, StringComparer.Ordinal);
-                    Plugin.Log.LogInfo($"Strings: {code} catalog, {strict.Count} keys");
-                    return strict;
+                    json = File.ReadAllText(file, Encoding.UTF8);
+                    from = file;
                 }
+                else
+                {
+                    var asm = Assembly.GetExecutingAssembly();
+                    string suffix = ".lang." + code + ".json";
+                    foreach (string n in asm.GetManifestResourceNames())
+                        if (n.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            using (var stream = asm.GetManifestResourceStream(n))
+                            using (var reader = new StreamReader(stream, Encoding.UTF8))
+                                json = reader.ReadToEnd();
+                            from = "the plugin";
+                            break;
+                        }
+                }
+                if (json == null)
+                {
+                    Plugin.Log.LogWarning($"Strings: no catalog {code} in the plugin");
+                    return null;
+                }
+                var table = JsonConvert.DeserializeObject<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
+                var strict = new Dictionary<string, string>(table, StringComparer.Ordinal);
+                Plugin.Log.LogInfo($"Strings: {code} catalog, {strict.Count} keys, from {from}");
+                return strict;
             }
             catch (Exception e)
             {

@@ -70,6 +70,7 @@ namespace HsPuzzleBridge
             NarrowSort(go.transform, l.SortWidth);
             if (_sort.m_menu != null) _sortMenuHome = _sort.m_menu.transform.localPosition;
             for (int i = 0; i < SortKeys.Length; i++) _sort.addItem(SortLabel(i));
+            foreach (var item in _sort.GetComponentsInChildren<DropdownMenuItem>(true)) Fit.Label(item.m_text);
             // The box's text centred (the menu's items stay as they are), the view's order in it from the start.
             if (_sort.m_selectedItem?.m_text != null) _sort.m_selectedItem.m_text.Alignment = UberText.AlignmentOptions.Center;
             _sort.setSelection(SortLabel(SortOf(ReplayLibrary.Current)));

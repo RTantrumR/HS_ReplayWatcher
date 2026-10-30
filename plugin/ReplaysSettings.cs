@@ -38,7 +38,11 @@ namespace HsPuzzleBridge
             _strip.localScale = _slot1.localScale;
             _strip.gameObject.layer = layer;
             _stripTextSource = Find(_slot1, "HeroName");
-            if (_stripTextSource != null) _sizeText = NewText(_stripTextSource, "ViewSize", "", _strip);
+            if (_stripTextSource != null)
+            {
+                _sizeText = NewText(_stripTextSource, "ViewSize", "", _strip);
+                Fit.Label(_sizeText.Text);
+            }
             else Plugin.Log.LogWarning("Replays strip: the stock row has no HeroName text; the strip has no texts");
             PlaceStrip(Layout.Current);
             CreateViewControls();
@@ -63,6 +67,7 @@ namespace HsPuzzleBridge
                 StripReleasedActions(button.gameObject);
                 var b = button.GetComponentInChildren<UIBButton>(true);
                 b.SetText(text);
+                Fit.Label(b.m_ButtonText);
                 b.AddEventListener(UIEventType.RELEASE, e => onRelease());
                 // On the part the hover wiggle and the press turn and move (the label rides it too).
                 AddStripIcon(b.m_RootObject != null ? b.m_RootObject.transform : button.transform, b.m_ButtonText, icon);
@@ -85,6 +90,8 @@ namespace HsPuzzleBridge
             public Vector3 Centre, LabelAt, Right;
             public float Width, Height;
             public Quaternion Turn;
+            public float Box; // the label's own box (its Width as made), before the icon took its share
+            public bool Narrowed;
         }
 
         private static readonly List<StripIcon> _stripIcons = new List<StripIcon>();
@@ -101,7 +108,7 @@ namespace HsPuzzleBridge
             _stripIcons.Add(new StripIcon
             {
                 Label = label, LabelHome = label.transform.localPosition, Icon = go.transform,
-                Aspect = size.z > 0f ? size.x / size.z : 1f,
+                Aspect = size.z > 0f ? size.x / size.z : 1f, Box = label.Width,
             });
             Plugin.Log.LogInfo($"Replays strip: {anchor.name} icon in {colour} (label {label.TextColor})");
         }
@@ -138,6 +145,19 @@ namespace HsPuzzleBridge
                     si.Measured = true;
                 }
                 float h = l.StripIconSize * si.Height, w = h * si.Aspect, gap = l.StripIconGap * h;
+                if (!si.Narrowed)
+                {
+                    // The label's box less the icon and its gap (in the label's own units), so a long language's label
+                    // shrinks to the room beside the icon rather than under it; measured again once it has.
+                    float labelUnit = Mathf.Abs(si.Label.transform.lossyScale.x);
+                    if (labelUnit > 0f)
+                    {
+                        float box = si.Box - w * Mathf.Abs(anchor.lossyScale.x) / labelUnit; // the gap is the box's own slack
+                        if (box > 0.05f && box < si.Label.Width) { si.Label.Width = box; si.Measured = false; }
+                    }
+                    si.Narrowed = true;
+                    if (!si.Measured) continue;
+                }
                 si.Label.transform.position = anchor.TransformPoint(si.LabelAt + si.Right * ((w + gap) / 2f));
                 si.Icon.localPosition = si.Centre - si.Right * ((si.Width + gap) / 2f);
                 si.Icon.localRotation = si.Turn;
@@ -243,6 +263,7 @@ namespace HsPuzzleBridge
             tr.localScale = Vector3.one * scale;
             t.Text.Anchor = UberText.AnchorOptions.Middle;
             t.Text.Width = width / scale;
+            Fit.Now(t.Text);
             int style = Mathf.Clamp(Mathf.RoundToInt(l.StripPlate), 0, PlateStyles.Length - 1);
             float w = width;
             if (style != 0)

@@ -97,7 +97,7 @@ namespace HsPuzzleBridge
 
             var t = _root.transform;
             var title = Find(Find(t, "Header"), "UberText")?.GetComponent<UberText>();
-            if (title != null) title.Text = Strings.T("options.title");
+            if (title != null) { title.Text = Strings.T("options.title"); Fit.Label(title); }
 
             // Top inset: the keep slider (the master volume's) between its own label and a copy of it with the count
             // and the storage (laid out in one row by KeepRow).
@@ -111,12 +111,14 @@ namespace HsPuzzleBridge
             if (keepLabel != null)
             {
                 keepLabel.Text = Strings.T("options.keepLabel");
+                Fit.Label(keepLabel);
                 var value = UnityEngine.Object.Instantiate(keepLabel.gameObject, keepLabel.transform.parent, false);
                 value.name = "KeepValue";
                 // The copy brings the original's rendered text object along; UberText makes its own (as NewText).
                 foreach (Transform child in value.transform)
                     if (child.name.StartsWith("UberText_RenderObject")) UnityEngine.Object.Destroy(child.gameObject);
                 _keepLabel = value.GetComponent<UberText>();
+                Fit.Label(_keepLabel);
                 _keepTitle = keepLabel;
             }
             if (_keep != null)
@@ -154,6 +156,7 @@ namespace HsPuzzleBridge
                     if (label == null) continue;
                     float w = label.Width;
                     label.Width = w * 3f;
+                    Fit.Label(label);
                     label.transform.localPosition += new Vector3(w * label.transform.localScale.x, 0f, 0f);
                 }
                 _deleteLabel = _noAskDelete.m_uberText;
@@ -208,6 +211,7 @@ namespace HsPuzzleBridge
             var label = Find(b.transform, textName)?.GetComponent<UberText>();
             if (label != null) label.Text = text;
             else b.SetText(text);
+            Fit.Label(label ?? b.m_ButtonText);
             b.AddEventListener(UIEventType.RELEASE, e => onRelease());
         }
 

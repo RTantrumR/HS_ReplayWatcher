@@ -51,6 +51,13 @@ namespace HsPuzzleBridge.Localization
             return English; // ruRU, enGB, UNKNOWN, a locale added by a later client
         }
 
+        public static bool Known(string code)
+        {
+            foreach (var l in All)
+                if (string.Equals(l.Code, code, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
         public static LocaleInfo Info(string code)
         {
             foreach (var l in All)

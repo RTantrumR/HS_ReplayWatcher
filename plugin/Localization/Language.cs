@@ -41,7 +41,10 @@ namespace HsPuzzleBridge.Localization
             string forced = Override?.Value?.Trim();
             if (!string.IsNullOrEmpty(forced))
             {
-                Set(Locales.CatalogFor(forced), "config " + forced);
+                // A known locale's catalog; or any catalog file beside the DLL (a translator's draft, the fit test's
+                // pseudo-locale), by its own code; else English.
+                string code = Locales.Known(forced) ? Locales.CatalogFor(forced) : Strings.HasFile(forced) ? forced : Locales.English;
+                Set(code, "config " + forced);
                 return;
             }
             string client = null;

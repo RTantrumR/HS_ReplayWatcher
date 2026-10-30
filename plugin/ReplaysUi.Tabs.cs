@@ -105,6 +105,7 @@ namespace HsPuzzleBridge
             }
             _title.GameStringLookup = false;
             _title.Text = MiddleTabName;
+            Fit.Label(_title);
             _tabsBuilt = true;
             PlaceTabs(Layout.Current);
             Plugin.Log.LogInfo($"Replays tabs built over the frame's plate ({tex.width}x{tex.height})");
@@ -120,6 +121,7 @@ namespace HsPuzzleBridge
             var t = go.GetComponent<UberText>();
             t.GameStringLookup = false;
             t.Text = text;
+            Fit.Label(t);
             return t;
         }
 

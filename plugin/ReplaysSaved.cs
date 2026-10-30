@@ -45,8 +45,10 @@ namespace HsPuzzleBridge
             {
                 // The empty saved list's line: another copy of the row's name text, where the slider is.
                 _emptyText = NewText(_stripTextSource, "SavedEmpty", Strings.T("page.empty.saved"), _strip);
+                Fit.Wrap(_emptyText.Text);
                 ShowStripText(_emptyText, false);
                 _importedEmptyText = NewText(_stripTextSource, "ImportedEmpty", Strings.T("page.empty.imported"), _strip);
+                Fit.Wrap(_importedEmptyText.Text);
                 ShowStripText(_importedEmptyText, false);
             }
             PlaceViewControls(Layout.Current);
