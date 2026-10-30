@@ -32,6 +32,14 @@ namespace HsPuzzleBridge.Localization
             return s.Length > 1 && s[0] == '@' ? Game(s.Substring(1), key) : s;
         }
 
+        /// <summary>Whether English has the key (a code from the server may be newer than the catalogs).</summary>
+        public static bool Has(string key)
+        {
+            if (string.IsNullOrEmpty(key)) return false;
+            Ensure();
+            return _en.ContainsKey(key);
+        }
+
         /// <summary>T(key) with its {n} placeholders filled, in the language's culture.</summary>
         public static string F(string key, params object[] args) => Format(T(key), args);
 

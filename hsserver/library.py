@@ -35,7 +35,9 @@ class Library:
         self.current: ReplayData | None = None
         self.current_id: str | None = None
         self.state = "idle"  # idle | loading | ready | error
-        self.error = ""
+        self.error = ""  # the English reason; code + detail say the same for the plugin's catalogs (library.error.<code>)
+        self.code = ""
+        self.detail = ""
         self._requested: str | None = None
         self._loaded: OrderedDict[str, ReplayData] = OrderedDict()
 
@@ -69,12 +71,16 @@ class Library:
     # ------------------------------------------------------------------ loading
 
     def status(self) -> str:
-        """`library=<state>;id=<current or requested id>;` plus `error=<text>;` on error."""
+        """`library=<state>;id=<current or requested id>;` plus `error=<text>;code=<code>;detail=<text>;` on error."""
         gid = self._requested or self.current_id or ""
         reply = f"library={self.state};id={gid};"
         if self.state == "error":
-            reply += f"error={self.error.replace(';', ',')};"
+            reply += f"error={self.error.replace(';', ',')};code={self.code};detail={self.detail.replace(';', ',')};"
         return reply
+
+    def _fail(self, code: str, detail: str) -> None:
+        self.state, self.code, self.detail = "error", code, detail
+        self.error = {"noRecording": "no recording {0}", "loadFailed": "{0}"}[code].format(detail)
 
     def request(self, game_id: str) -> str:
         """Start loading game_id (no-op if it's current or already loading); returns the status."""
@@ -89,7 +95,8 @@ class Library:
                 if path:
                     break
         if path is None:
-            self.state, self.error, self._requested = "error", f"no recording {game_id}", game_id
+            self._requested = game_id
+            self._fail("noRecording", game_id)
             return self.status()
         cached = self._loaded.get(game_id)
         if cached is not None:
@@ -113,7 +120,7 @@ class Library:
         except Exception as e:
             log.warning("loading %s failed: %s", game_id, e)
             if self._requested == game_id:
-                self.state, self.error = "error", str(e)
+                self._fail("loadFailed", str(e))
             return
         log.info("loaded %s in %.1f s", game_id, time.perf_counter() - t)
         self._loaded[game_id] = data

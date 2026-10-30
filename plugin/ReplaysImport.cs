@@ -28,7 +28,7 @@ namespace HsPuzzleBridge
         [Serializable]
         private sealed class ImportResult
         {
-            public string file = "", result = "", id = "", reason = "", hero = "", start = "";
+            public string file = "", result = "", id = "", reason = "", code = "", detail = "", hero = "", start = "";
             public int place = 0; // filled by JsonUtility
         }
 
@@ -136,7 +136,7 @@ namespace HsPuzzleBridge
             Section(Strings.N("import.section.imported", imported), results.Where(r => r.result == "imported"), ImportedName);
             Section(Strings.T("import.section.exists"), results.Where(r => r.result == "exists"), ImportedName);
             Section(Strings.T("import.section.refused"), results.Where(r => r.result == "refused"),
-                    r => Strings.F("import.refused", ImportedName(r), r.reason));
+                    r => Strings.F("import.refused", ImportedName(r), Reason(r)));
             if (results.Count == 0) text.Append(Strings.T("import.noAnswer"));
             Alert(Strings.T(imported > 0 ? "import.result.some" : "import.result.none"), text.ToString());
             if (imported > 0)
@@ -144,6 +144,14 @@ namespace HsPuzzleBridge
                 ReplayServerProcess.ScanCatalog();
                 ReplayLibrary.Show(ReplayLibrary.Imported);
             }
+        }
+
+        /// <summary>Why a file was refused, in the language (the importer's code), else its English reason (an older
+        /// server, or a code the catalogs don't know).</summary>
+        private static string Reason(ImportResult r)
+        {
+            string key = "import.reason." + r.code;
+            return !string.IsNullOrEmpty(r.code) && Strings.Has(key) ? Strings.F(key, r.detail) : r.reason;
         }
 
         private static void ImportStatus(string text, bool error)

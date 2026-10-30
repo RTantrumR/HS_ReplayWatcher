@@ -23,7 +23,8 @@ LANG = ROOT / "plugin" / "lang"
 PLUGIN = ROOT / "plugin"
 STRINGS_DIRS = [Path(r"E:\Games\Hearthstone\Strings")]
 PLURAL_FORMS = {"plPL": 3}  # every other catalog language: 2 (Locales.cs mirrors the client's GetPluralIndex)
-DYNAMIC_PREFIXES = ("place.",)  # keys the code builds at run time
+DYNAMIC_PREFIXES = ("place.", "import.reason.", "library.error.")  # keys the code builds at run time
+LIBRARY_CODES = ("noRecording", "loadFailed")  # hsserver/library.py's _fail
 
 KEY_RE = re.compile(r"^[a-z][A-Za-z0-9]*(\.[A-Za-z0-9]+)+$")
 PLACEHOLDER_RE = re.compile(r"\{(\d+)\}")
@@ -111,6 +112,23 @@ def main() -> int:
     if unused:
         print(f"  enUS keys no code references: {', '.join(unused)}")
         failed = True
+
+    # The server's reason codes: each has its key, and no reason key is without a code.
+    sys.path.insert(0, str(ROOT))
+    from hsserver.importer import REASONS  # noqa: E402
+    codes = {"import.reason." + c for c in REASONS} | {"library.error." + c for c in LIBRARY_CODES}
+    no_key = sorted(c for c in codes if c not in en)
+    no_code = sorted(k for k in en if k.startswith(("import.reason.", "library.error.")) and k not in codes)
+    if no_key:
+        print(f"  server codes without a key: {', '.join(no_key)}")
+        failed = True
+    if no_code:
+        print(f"  reason keys without a server code: {', '.join(no_code)}")
+        failed = True
+    for c, text in REASONS.items():
+        if placeholders(text) != placeholders(en["import.reason." + c]):
+            print(f"  import.reason.{c}: placeholders differ from the importer's English")
+            failed = True
 
     game = game_keys_available()
     refs = {k: v[1:] for k, v in en.items() if v.startswith("@")}

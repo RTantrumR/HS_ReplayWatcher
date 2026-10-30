@@ -16,7 +16,8 @@ trusted or copied as it is:
   handshake's machine details blanked, as hsserver.share does), then catalogued with the catalog's own reader: it
   must be a Battlegrounds game with a watched player, and every card id its row shows must be a plain card id.
 A Power.log (the client's text log) is size-capped and converted (hsserver.powerlog); its games then go through
-the same checks. Prints one JSON line per result: {"file", "result": imported|exists|refused, "reason"} and for a
+the same checks. Prints one JSON line per result: {"file", "result": imported|exists|refused, "code", "detail",
+"reason"} (reason: the English text of the code, with the detail in it) and for a
 game read, "id", "hero" (card id), "place", "start" ("YYYY-MM-DD HH:MM").
 """
 from __future__ import annotations
@@ -88,8 +89,56 @@ CARD_ID = re.compile(r"[A-Za-z0-9_]{1,64}")
 NAME = re.compile(r"(\d{8}_\d{6}_(?:game|log)[0-9A-Za-z_]{1,40})(?: \(\d+\))?\.jsonl(?:\.gz)?")
 
 
+REASONS = {  # code: the English reason ({0} = its detail); the plugin's catalogs say it per language (import.reason.<code>)
+    "fieldType": "a line's {0} field is not of its type",
+    "fieldForm": "a line's {0} field isn't of the expected form",
+    "unknownProtocolField": "a packet has fields the game's protocol doesn't have ({0})",
+    "oddText": "a packet has an odd text in {0}",
+    "notObject": "a line is not a JSON object",
+    "unknownKind": "a line of an unknown kind",
+    "connectNotFirst": "the connection line isn't first",
+    "secondConnect": "a second connection line",
+    "unknownField": "a line has an unknown field {0}",
+    "missingField": "a line has no {0}",
+    "unknownPacketType": "a packet of an unknown type {0}",
+    "packetTooLarge": "a packet is too large",
+    "badBase64": "a packet's body is not valid base64",
+    "lengthMismatch": "a packet's length doesn't match its body",
+    "noLayout": "a packet of a type with no known layout ({0})",
+    "noDecode": "a {0} packet doesn't decode",
+    "inexactDecode": "a {0} packet doesn't decode exactly",
+    "tooLargeUnpacked": "too large once unpacked",
+    "lineTooLong": "a line is too long",
+    "tooManyLines": "too many lines",
+    "notUtf8": "not text (UTF-8)",
+    "badGzip": "a damaged or incomplete gzip file",
+    "notJson": "a line is not valid JSON",
+    "noGame": "no game in it",
+    "unreadableGame": "the game can't be read",
+    "notBattlegrounds": "not a Battlegrounds game with a player to watch",
+    "badCardId": "a card id of an unexpected form",
+    "unreadableLog": "the Power.log can't be read",
+    "noBgInLog": "no Battlegrounds game in the Power.log",
+    "notFile": "not a file",
+    "tooLargeReplay": "too large for a replay",
+    "tooLargeLog": "too large for a Power.log",
+    "notReplay": "not a replay or a Power.log",
+    "unreadable": "couldn't be read ({0})",
+    "alreadyIn": "already in {0}",
+}
+
+
 class Refused(Exception):
-    """A file that isn't a replay (or a Power.log) the importer will store; the message says why."""
+    """A file that isn't a replay (or a Power.log) the importer will store: a code from REASONS, its detail (a field, a
+    packet name) and, as the message, the English reason."""
+
+    def __init__(self, code: str, detail=None):
+        self.code = code
+        self.detail = "" if detail is None else str(detail)
+        super().__init__(REASONS[code].format(self.detail))
+
+    def row(self) -> dict:
+        return {"result": "refused", "code": self.code, "detail": self.detail, "reason": str(self)}
 
 
 def _check_value(kind: str, key: str, typ: str, v) -> None:
@@ -104,17 +153,17 @@ def _check_value(kind: str, key: str, typ: str, v) -> None:
     else:
         ok = isinstance(v, str)
     if not ok:
-        raise Refused(f"a {kind} line's {key} is not a {typ}")
+        raise Refused("fieldType", f"{kind}.{key}")
     pattern = PATTERNS.get(key)
     if isinstance(v, str) and pattern is not None and not pattern.fullmatch(v):
-        raise Refused(f"a {kind} line's {key} isn't of the expected form")
+        raise Refused("fieldForm", f"{kind}.{key}")
 
 
 def _check_strings(obj, path: str = "") -> None:
     """No field the schema doesn't know, and strings without control characters, anywhere in a decoded body."""
     if isinstance(obj, dict):
         if "_unknown" in obj:
-            raise Refused(f"a packet has fields the game's protocol doesn't have ({path or 'top'})")
+            raise Refused("unknownProtocolField", path or "top")
         for k, v in obj.items():
             _check_strings(v, f"{path}.{k}" if path else k)
     elif isinstance(obj, list):
@@ -122,53 +171,53 @@ def _check_strings(obj, path: str = "") -> None:
             _check_strings(v, path)
     elif isinstance(obj, str):
         if len(obj) > MAX_STRING or CONTROL.search(obj):
-            raise Refused(f"a packet has an odd text in {path}")
+            raise Refused("oddText", path)
 
 
 def check_line(obj, first: bool) -> dict:
     """One recording line checked; returns the line to store (only its known fields, the body re-encoded)."""
     if not isinstance(obj, dict):
-        raise Refused("a line is not a JSON object")
+        raise Refused("notObject")
     kind = obj.get("kind")
     fields = FIELDS.get(kind) if isinstance(kind, str) else None
     if fields is None:
-        raise Refused("a line of an unknown kind")
+        raise Refused("unknownKind")
     if first != (kind == "connect"):
-        raise Refused("the connection line isn't first" if first else "a second connection line")
+        raise Refused("connectNotFirst" if first else "secondConnect")
     for key in obj:
         if key not in fields:
-            raise Refused(f"a {kind} line has an unknown field {key!r}"[:120])
+            raise Refused("unknownField", f"{key!r}"[:80])
     for key in REQUIRED[kind]:
         if key not in obj:
-            raise Refused(f"a {kind} line has no {key}")
+            raise Refused("missingField", f"{kind}.{key}")
     for key, v in obj.items():
         _check_value(kind, key, fields[key], v)
     out = {k: obj[k] for k in fields if k in obj}
     if kind == "packet":
         ptype = obj["type"]
         if ptype not in PACKET_NAMES:
-            raise Refused(f"a packet of an unknown type {ptype}")
+            raise Refused("unknownPacketType", ptype)
         if len(obj["body"]) > (MAX_BODY * 4) // 3 + 4:
-            raise Refused("a packet is too large")
+            raise Refused("packetTooLarge")
         try:
             body = base64.b64decode(obj["body"], validate=True)
         except (binascii.Error, ValueError):
-            raise Refused("a packet's body is not valid base64") from None
+            raise Refused("badBase64") from None
         if len(body) != obj["len"]:
-            raise Refused("a packet's length doesn't match its body")
+            raise Refused("lengthMismatch")
         if body:
             msg = "PegasusGame." + PACKET_NAMES[ptype]
             if msg not in schema():
-                raise Refused(f"a packet of a type with no known layout ({PACKET_NAMES[ptype]})")
+                raise Refused("noLayout", PACKET_NAMES[ptype])
             try:
                 decoded = decode(msg, body)
                 again = encode(msg, decoded)
             except Refused:
                 raise
             except Exception:  # noqa: BLE001 - any failure to decode a hostile body is a refusal
-                raise Refused(f"a {PACKET_NAMES[ptype]} packet doesn't decode") from None
+                raise Refused("noDecode", PACKET_NAMES[ptype]) from None
             if again != body:
-                raise Refused(f"a {PACKET_NAMES[ptype]} packet doesn't decode exactly")
+                raise Refused("inexactDecode", PACKET_NAMES[ptype])
             _check_strings(decoded)
             out["body"] = base64.b64encode(again).decode("ascii")
         out = scrub_line(out)
@@ -190,18 +239,18 @@ def _read_text(path: Path, gz: bool):
                     return
                 total += len(line)
                 if total > MAX_UNPACKED:
-                    raise Refused("too large once unpacked")
+                    raise Refused("tooLargeUnpacked")
                 if len(line) > MAX_LINE:
-                    raise Refused("a line is too long")
+                    raise Refused("lineTooLong")
                 count += 1
                 if count > MAX_LINES:
-                    raise Refused("too many lines")
+                    raise Refused("tooManyLines")
                 try:
                     yield line.decode("utf-8")
                 except UnicodeDecodeError:
-                    raise Refused("not text (UTF-8)") from None
+                    raise Refused("notUtf8") from None
         except (OSError, EOFError, gzip.BadGzipFile):
-            raise Refused("a damaged or incomplete gzip file") from None
+            raise Refused("badGzip") from None
 
 
 def rebuild(path: Path, gz: bool, out: Path) -> None:
@@ -216,12 +265,12 @@ def rebuild(path: Path, gz: bool, out: Path) -> None:
             try:
                 obj = json.loads(text)
             except (json.JSONDecodeError, RecursionError):
-                raise Refused("a line is not valid JSON") from None
+                raise Refused("notJson") from None
             fh.write(json.dumps(check_line(obj, first), separators=(",", ":"), ensure_ascii=False) + "\n")
             first = False
             lines += 1
     if lines < 2:
-        raise Refused("no game in it")
+        raise Refused("noGame")
 
 
 def check_row(path: Path):
@@ -231,13 +280,13 @@ def check_row(path: Path):
     try:
         g = read_game(path)
     except Exception:  # noqa: BLE001
-        raise Refused("the game can't be read") from None
+        raise Refused("unreadableGame") from None
     if g is None:
-        raise Refused("not a Battlegrounds game with a player to watch")
+        raise Refused("notBattlegrounds")
     cards = [g.hero, *g.hero_powers, *g.trinkets, *g.hp_quest] + [m[0] for m in g.board + g.hand]
     for card in cards:
         if card and not CARD_ID.fullmatch(str(card)):
-            raise Refused("a card id of an unexpected form")
+            raise Refused("badCardId")
     return g
 
 
@@ -272,7 +321,8 @@ def import_recording(path: Path, into: Path, known: list[Path], gz: bool) -> dic
         game = {"id": gid, "hero": g.hero, "place": g.place, "start": f"{gid[:4]}-{gid[4:6]}-{gid[6:8]} {gid[9:11]}:{gid[11:13]}"}
         where = exists(gid, [into, *known])
         if where is not None:
-            return {"result": "exists", **game, "reason": "already in " + where.name}
+            return {"result": "exists", **game, "code": "alreadyIn", "detail": where.name,
+                    "reason": REASONS["alreadyIn"].format(where.name)}
         os.replace(tmp, into / f"{gid}.jsonl.gz")
         return {"result": "imported", **game}
     finally:
@@ -289,7 +339,7 @@ def import_log(path: Path, into: Path, known: list[Path]) -> list[dict]:
             try:
                 games, _ = powerlog.parse([path])
             except Exception:  # noqa: BLE001
-                raise Refused("the Power.log can't be read") from None
+                raise Refused("unreadableLog") from None
             enums_build = powerlog.Enums().build
         results = []
         for g in games:
@@ -302,10 +352,10 @@ def import_log(path: Path, into: Path, known: list[Path]) -> list[dict]:
             try:
                 r = import_recording(out, into, known, True)
             except Refused as e:
-                r = {"result": "refused", "reason": str(e)}
+                r = e.row()
             results.append(r)
         if not results:
-            raise Refused("no Battlegrounds game in the Power.log")
+            raise Refused("noBgInLog")
         return results
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -313,23 +363,23 @@ def import_log(path: Path, into: Path, known: list[Path]) -> list[dict]:
 
 def import_file(path: Path, into: Path, known: list[Path]) -> list[dict]:
     if path.is_symlink() or not path.is_file():
-        raise Refused("not a file")
+        raise Refused("notFile")
     size = path.stat().st_size
     with path.open("rb") as fh:
         head = fh.read(65536)
     if head[:2] == b"\x1f\x8b":
         if size > MAX_FILE:
-            raise Refused("too large for a replay")
+            raise Refused("tooLargeReplay")
         return [import_recording(path, into, known, True)]
     if head.lstrip()[:1] == b"{":
         if size > MAX_FILE * 4:
-            raise Refused("too large for a replay")
+            raise Refused("tooLargeReplay")
         return [import_recording(path, into, known, False)]
     if b"GameState." in head or b"PowerTaskList." in head:
         if size > MAX_LOG:
-            raise Refused("too large for a Power.log")
+            raise Refused("tooLargeLog")
         return import_log(path, into, known)
-    raise Refused("not a replay or a Power.log")
+    raise Refused("notReplay")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -344,9 +394,9 @@ def main(argv: list[str] | None = None) -> int:
         try:
             results = import_file(path, args.into, args.known)
         except Refused as e:
-            results = [{"result": "refused", "reason": str(e)}]
+            results = [e.row()]
         except Exception as e:  # noqa: BLE001 - one bad file never stops the others
-            results = [{"result": "refused", "reason": f"couldn't be read ({type(e).__name__})"}]
+            results = [Refused("unreadable", type(e).__name__).row()]
         for r in results:
             out.write(json.dumps({"file": path.name, **r}, ensure_ascii=False) + "\n")
             out.flush()

@@ -388,7 +388,11 @@ namespace HsPuzzleBridge
             {
                 _watchId = null;
                 head.TryGetValue("error", out string error);
-                Fail("library.failed", error);
+                head.TryGetValue("code", out string code);
+                head.TryGetValue("detail", out string detail);
+                string key = "library.error." + code;
+                if (!string.IsNullOrEmpty(code) && Strings.Has(key)) Fail(key, detail);
+                else Fail("library.failed", error);
                 ReplayServerProcess.Stop("the replay failed to load");
             }
             else if (state == "ready")
