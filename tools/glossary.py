@@ -49,9 +49,21 @@ TERMS = [
     ("Play", "GLOBAL_PLAY"),
     ("Back", "GLOBAL_BACK"),
     ("Confirm", "GLOBAL_CONFIRM"),
-    ("1st Place (BG end screen)", "GLUE_BACON_FIRST_PLACE_LABEL"),
+    # Places: the BG end-of-game banner (1st-4th carry exclamation marks there; the plugin's places don't).
+    *[(f"Place {n} (end of game)", f"GAMEPLAY_END_OF_GAME_PLACE_{n}") for n in range(1, 9)],
+    ("Best place (mulligan)", "GAMEPLAY_MULLIGAN_BEST_PLACE"),
+    ("1st Place label (trap: Polish says 'wins')", "GLUE_BACON_FIRST_PLACE_LABEL"),
     ("Turn (plural)", "GAMEPLAY_TOOLTIP_BACON_DARKMOON_PRIZES_DESC"),
+    ("Minutes (plural)", "GLOBAL_DATETIME_AFK_MINUTES"),
     ("Minutes ago (plural)", "GLOBAL_DATETIME_FRIENDREQUEST_MINUTES"),
+    ("Spectator Mode", "GLOBAL_SPECTATOR_MODE_INDICATOR_TEXT"),
+    ("Reconnecting (sentence)", "GLOBAL_RECONNECT_RECONNECTING"),
+    ("Screenshot saved to folder", "GLOBAL_SCREENSHOT_COMPLETE_SPECIFIC_DIRECTORY"),
+    ("Folder (error)", "GLOBAL_ERROR_ASSET_CREATE_PERSISTENT_DATA_PATH"),
+    ("Remove (spectator)", "GLOBAL_SPECTATOR_KICK_PROMPT_HEADER"),
+    ("Are you sure? (the address form)", "GLUE_COLLECTION_DECK_TEMPLATE_REPLACE_MESSAGE"),
+    ("Paste (deck code)", "GLUE_COLLECTION_DECK_PASTE"),
+    ("Copy", "GLUE_COLLECTION_DECK_COPY"),
 ]
 
 
