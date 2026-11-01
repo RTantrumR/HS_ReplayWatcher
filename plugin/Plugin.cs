@@ -96,7 +96,7 @@ namespace HsPuzzleBridge
         /// <summary>What the installer adds beside BepInEx: the replay server and its Python.</summary>
         private static string InstallDir => Path.Combine(Paths.BepInExRootPath, "HSReplayWatcher");
 
-        private static string DataDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HS Replay Watcher");
+        internal static string DataDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HS Replay Watcher");
 
         /// <summary>The recordings folder: the config's, else the chosen folder's Recent, else one under %LOCALAPPDATA%
         /// (an install keeps none in HS; its games move into Recent once a folder is chosen: <see cref="ReplayLibrary.SplitSavedDir"/>).</summary>
@@ -137,6 +137,7 @@ namespace HsPuzzleBridge
                 FolderPicker.Update();
                 ReplayShare.Update();
                 ReplaysUi.UpdateImport();
+                ReplaysUi.PollTour();
                 SpectatorJoin.Update();
                 CombatDoneNote.Update();
                 UiDump.Update();
@@ -159,6 +160,7 @@ namespace HsPuzzleBridge
             Probe("picker", FolderPicker.Update);
             Probe("share", ReplayShare.Update);
             Probe("import", ReplaysUi.UpdateImport);
+            Probe("tour", ReplaysUi.PollTour);
             Probe("spectator", SpectatorJoin.Update);
             Probe("combatnote", CombatDoneNote.Update);
             Probe("dump", UiDump.Update);

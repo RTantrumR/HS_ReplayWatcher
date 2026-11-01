@@ -55,6 +55,20 @@ namespace HsPuzzleBridge
             AnimationUtil.ShowWithPunch(_root, 0.01f * _normalScale, 1.1f * _normalScale, _normalScale, null, noFade: true);
         }
 
+        /// <summary>The language changed (the tour): the popup is made again at its next Show, in the new words.</summary>
+        internal static void Rebuild()
+        {
+            Hide();
+            if (_root != null) UnityEngine.Object.Destroy(_root);
+            _root = null;
+        }
+
+        /// <summary>For the tour: the second box's tooltip, as a hover shows it.</summary>
+        internal static void TourTip()
+        {
+            if (Shown && _noAskDelete != null) ShowTip(_noAskDelete.transform);
+        }
+
         public static void Hide()
         {
             if (!Shown) return;

@@ -27,6 +27,14 @@ namespace HsPuzzleBridge.Localization
 
         public static bool Resolved => _code != null;
 
+        /// <summary>The screenshot tour's language (any catalog code, the pseudo-locale included), or null to resolve
+        /// as usual again.</summary>
+        public static void Tour(string code)
+        {
+            Refresh();
+            if (code != null) Set(code, "tour");
+        }
+
         /// <summary>Forget the resolution and the loaded catalog; the next read resolves again.</summary>
         public static void Refresh()
         {
@@ -58,7 +66,7 @@ namespace HsPuzzleBridge.Localization
         {
             _code = code;
             _source = source;
-            try { _culture = CultureInfo.GetCultureInfo(Locales.Info(code).Culture); }
+            try { _culture = CultureInfo.GetCultureInfo(Locales.Known(code) ? Locales.Info(code).Culture : "en-US"); }
             catch (Exception e)
             {
                 Plugin.Log.LogWarning($"Language: no culture for {code}: {e.Message}");

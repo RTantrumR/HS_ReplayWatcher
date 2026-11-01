@@ -349,8 +349,27 @@ namespace HsPuzzleBridge
         /// <summary>Local bar point (x right, y down from the top-left) → root space.</summary>
         private static Vector3 L(float x, float y, float lift = 0f) => new Vector3(x, lift, -y);
 
+        /// <summary>The screenshot tour's pointer (bar-local, as MouseLocal), or null for the real mouse.</summary>
+        internal static Vector2? TourMouse;
+        /// <summary>The screenshot tour's hovered event (its index), or -1: the pointer's nearest event as usual.</summary>
+        internal static int TourEvent = -1;
+
+        /// <summary>For the tour: a button's centre and a time's place on the track, bar-local.</summary>
+        internal static Vector2 ButtonCentre(int button) => ButtonRects[button].center;
+        internal static int ButtonCount => ButtonRects.Length;
+        internal static Vector2 TrackPoint(float ms) => new Vector2(XAt(ms), BarH / 2f);
+        internal static bool Showing => _root != null && _root.activeSelf && ReplayTimeline.Ready;
+
+        /// <summary>The language changed (the tour): the bar's pieces and its tooltip made again.</summary>
+        internal static void Relabel()
+        {
+            _builtVersion = -1;
+            HideTooltip();
+        }
+
         private static Vector2 MouseLocal()
         {
+            if (TourMouse.HasValue) return TourMouse.Value;
             var m = Input.mousePosition;
             return new Vector2((m.x - _origin.x) / _refPx, (_origin.y - m.y) / _refPx);
         }
@@ -397,6 +416,12 @@ namespace HsPuzzleBridge
             var hit = new Rect(_track.x - 6f, BarH / 2f - TrackHitH / 2f, _track.width + 12f, TrackHitH);
             bool overTrack = !Compact && (hit.Contains(mouse) || (_trackPressed && Input.GetMouseButton(0)));
             _hover = overTrack ? HoverAt(mouse.x) : default;
+            var tourPoints = ReplayTimeline.Points;
+            if (TourEvent >= 0 && tourPoints != null && TourEvent < tourPoints.Length)
+            {
+                float ms = tourPoints[TourEvent].Ms;
+                _hover = new Hover { On = true, Ms = ms, X = XAt(ms), Event = TourEvent };
+            }
 
             if (Input.GetMouseButtonDown(0))
             {

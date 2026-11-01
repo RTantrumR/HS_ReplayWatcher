@@ -123,6 +123,18 @@ namespace HsPuzzleBridge
             }
             foreach (var r in results) Plugin.Log.LogInfo($"Import: {r.file}: {r.result} {r.id} {r.reason}");
             int imported = results.Count(r => r.result == "imported");
+            Alert(Strings.T(imported > 0 ? "import.result.some" : "import.result.none"), ImportText(results));
+            if (imported > 0)
+            {
+                ReplayServerProcess.ScanCatalog();
+                ReplayLibrary.Show(ReplayLibrary.Imported);
+            }
+        }
+
+        /// <summary>The results popup's text: the imported, those already there and those refused (with why).</summary>
+        private static string ImportText(List<ImportResult> results)
+        {
+            int imported = results.Count(r => r.result == "imported");
             var text = new StringBuilder();
             void Section(string title, IEnumerable<ImportResult> rs, Func<ImportResult, string> line)
             {
@@ -138,12 +150,7 @@ namespace HsPuzzleBridge
             Section(Strings.T("import.section.refused"), results.Where(r => r.result == "refused"),
                     r => Strings.F("import.refused", ImportedName(r), Reason(r)));
             if (results.Count == 0) text.Append(Strings.T("import.noAnswer"));
-            Alert(Strings.T(imported > 0 ? "import.result.some" : "import.result.none"), text.ToString());
-            if (imported > 0)
-            {
-                ReplayServerProcess.ScanCatalog();
-                ReplayLibrary.Show(ReplayLibrary.Imported);
-            }
+            return text.ToString();
         }
 
         /// <summary>Why a file was refused, in the language (the importer's code), else its English reason (an older

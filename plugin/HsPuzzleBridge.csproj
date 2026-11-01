@@ -41,6 +41,10 @@
       <HintPath>$(HearthstoneManagedPath)blizzard.bgsclient.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Blizzard.T5.JobQueue">
+      <HintPath>$(HearthstoneManagedPath)Blizzard.T5.JobQueue.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>$(HearthstoneManagedPath)Newtonsoft.Json.dll</HintPath>
       <Private>false</Private>

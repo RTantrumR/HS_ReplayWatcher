@@ -61,7 +61,7 @@ namespace HsPuzzleBridge
             var info = new AlertPopup.PopupInfo
             {
                 m_headerText = Strings.T("bug.title"),
-                m_text = Strings.F("bug.body", Strings.T(game != null ? "bug.filesGameAndLogs" : "bug.filesLogs")),
+                m_text = PopupText(game != null),
                 m_responseDisplay = AlertPopup.ResponseDisplay.CONFIRM_CANCEL,
                 m_iconSet = AlertPopup.PopupInfo.IconSet.Default,
                 m_confirmText = Strings.T("bug.open"),
@@ -89,6 +89,10 @@ namespace HsPuzzleBridge
                 _busy = false;
             }
         }
+
+        /// <summary>The popup's text (with a game: its copy is among the files to drag in).</summary>
+        internal static string PopupText(bool withGame) =>
+            Strings.F("bug.body", Strings.T(withGame ? "bug.filesGameAndLogs" : "bug.filesLogs"));
 
         private static void Send(Texture2D shot, string details, string game)
         {

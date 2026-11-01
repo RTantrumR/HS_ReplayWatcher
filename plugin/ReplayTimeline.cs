@@ -354,6 +354,13 @@ namespace HsPuzzleBridge
 
         // ------------------------------------------------------------------ labels
 
+        /// <summary>The language changed (the tour): card names and event labels made again at their next use.</summary>
+        internal static void Relabel()
+        {
+            Names.Clear();
+            if (Points != null) foreach (var p in Points) if (p != null) p.Text = null;
+        }
+
         public static string Name(string cardId)
         {
             if (string.IsNullOrEmpty(cardId)) return "";
