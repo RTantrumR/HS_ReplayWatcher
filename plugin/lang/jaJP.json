@@ -9,7 +9,7 @@
   "page.title.saved": "保存したリプレイ",
   "page.title.imported": "インポートしたリプレイ",
   "page.empty.saved": "保存したリプレイはまだないぞ。ヒーローのポートレートの横にあるスターを押すと、その対戦がここに保存される。",
-  "page.empty.imported": "インポートしたリプレイはまだないぞ。共有されたリプレイやPower.logをインポートするか、Ctrl+Vでここにペーストしてくれ。",
+  "page.empty.imported": "インポートしたリプレイはまだないぞ。共有リプレイやPower.logをインポートするか、Ctrl+Vでペーストしてくれ。",
   "page.size": "{0}|4(試合,試合)、{1} MB",
   "page.settings": "@GLUE_LOADINGSCREEN_BUTTON_SETTINGS",
   "page.import": "インポート",

@@ -9,7 +9,7 @@
   "page.title.saved": "Replays salvos",
   "page.title.imported": "Replays importados",
   "page.empty.saved": "Ainda não há replays salvos. A estrela ao lado do retrato de uma partida a salva aqui.",
-  "page.empty.imported": "Ainda não há replays importados. Importe replays compartilhados ou um Power.log, ou cole-os aqui com Ctrl+V.",
+  "page.empty.imported": "Ainda não há replays importados. Importe replays compartilhados ou um Power.log, ou cole-os com Ctrl+V.",
   "page.size": "{0} |4(partida,partidas), {1} MB",
   "page.settings": "@GLUE_LOADINGSCREEN_BUTTON_SETTINGS",
   "page.import": "Importar",

@@ -9,7 +9,7 @@
   "page.title.saved": "Gespeicherte Replays",
   "page.title.imported": "Importierte Replays",
   "page.empty.saved": "Noch keine gespeicherten Replays. Der Stern neben dem Porträt eines Spiels speichert es hier.",
-  "page.empty.imported": "Noch keine importierten Replays. Importiert geteilte Replays oder eine Power.log oder fügt sie hier mit Ctrl+V ein.",
+  "page.empty.imported": "Noch keine Replays importiert. Importiert geteilte Replays oder eine Power.log oder fügt sie mit Ctrl+V ein.",
   "page.size": "{0} |4(Spiel,Spiele), {1} MB",
   "page.settings": "@GLUE_LOADINGSCREEN_BUTTON_SETTINGS",
   "page.import": "Importieren",

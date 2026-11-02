@@ -20,7 +20,7 @@
   "sort.heroName": "ชื่อฮีโร่",
   "sort.longest": "นานที่สุด",
 
-  "row.date": "d MMM HH:mm",
+  "row.date": "d/M HH:mm",
   "row.length": "{0} |4(เทิร์น,เทิร์น), {1} นาที",
 
   "place.1": "อันดับ 1",
