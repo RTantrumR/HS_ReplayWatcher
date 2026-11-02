@@ -46,16 +46,16 @@ namespace HsPuzzleBridge
             else Plugin.Log.LogWarning("Replays strip: the stock row has no HeroName text; the strip has no texts");
             PlaceStrip(Layout.Current);
             CreateViewControls();
-            _settings = StripButton("SettingsButton", Strings.T("page.settings"), ReplaysOptions.Show, GearIcon);
-            _importButton = StripButton("ImportButton", Strings.T("page.import"), PickImport, ImportIcon);
+            _settings = StripButton("SettingsButton", "page.settings", ReplaysOptions.Show, GearIcon);
+            _importButton = StripButton("ImportButton", "page.import", PickImport, ImportIcon);
             CreateSortDropdown();
             ShowView();
             ColourStrip();
         }
 
         /// <summary>A copy of the lobby's stats button on the strip, its own release actions taken off, an icon left of
-        /// its label (made in the label's colour).</summary>
-        private static Transform StripButton(string name, string text, Action onRelease, Func<Color, GameObject> icon)
+        /// its label (made in the label's colour); the label's key is read once the widget is ready.</summary>
+        private static Transform StripButton(string name, string key, Action onRelease, Func<Color, GameObject> icon)
         {
             if (_strip == null || _statsButton == null) return null;
             var button = WidgetInstance.Create(AssetOf(_statsButton));
@@ -66,7 +66,7 @@ namespace HsPuzzleBridge
             {
                 StripReleasedActions(button.gameObject);
                 var b = button.GetComponentInChildren<UIBButton>(true);
-                b.SetText(text);
+                b.SetText(Strings.T(key));
                 Fit.Label(b.m_ButtonText);
                 b.AddEventListener(UIEventType.RELEASE, e => onRelease());
                 // On the part the hover wiggle and the press turn and move (the label rides it too).
@@ -86,12 +86,14 @@ namespace HsPuzzleBridge
             public float Aspect; // the icon's width per height
             public bool Measured;
             // Measured with the button at rest, in its moving part's units (the icon's parent): the drawn label's
-            // top-face centre, its width and height, the label's own place there, the screen's right, the icon's turn.
+            // top-face centre and width, the label's own place there, the screen's right, the icon's turn; the
+            // label's letter size before any shrinking (the icon's measure, alike in every language); the button's
+            // middle and width along the screen's right (its art, the label and icon left out).
             public Vector3 Centre, LabelAt, Right;
-            public float Width, Height;
+            public float Width, Letter, Middle, Across;
             public Quaternion Turn;
             public float Box; // the label's own box (its Width as made), before the icon took its share
-            public bool Narrowed;
+            public bool Narrowed, Logged;
         }
 
         private static readonly List<StripIcon> _stripIcons = new List<StripIcon>();
@@ -113,11 +115,13 @@ namespace HsPuzzleBridge
             Plugin.Log.LogInfo($"Replays strip: {anchor.name} icon in {colour} (label {label.TextColor})");
         }
 
-        /// <summary>Per frame: each icon and its label centred together where the label was, the icon
-        /// StripIconSize of the drawn label's height, StripIconGap of that before the label. Everything is kept in
-        /// the units of the button's moving part (the icon's parent), so the hover wiggle and the press carry both;
-        /// the drawn label is measured once, at its own place with the button at rest, so moving it never feeds back
-        /// into the measure.</summary>
+        /// <summary>Per frame: each icon and its label centred together on the button, the icon StripIconSize of the
+        /// label's letter size (as set, before any shrinking: one size in every language), StripIconGap of that
+        /// before the label; the label's box is the button's field (StripField of its width) less the icon and the
+        /// gap, so a long language's label shrinks to the room beside the icon instead of pushing the icon onto the
+        /// button's rim. Everything is kept in the units of the button's moving part (the icon's parent), so the
+        /// hover wiggle and the press carry both; the drawn label is measured at its own place with the button at
+        /// rest, so moving it never feeds back into the measure.</summary>
         private static void PlaceStripIcons()
         {
             var l = Layout.Current;
@@ -140,29 +144,74 @@ namespace HsPuzzleBridge
                     si.LabelAt = anchor.InverseTransformPoint(si.Label.transform.position);
                     si.Right = anchor.InverseTransformDirection(Vector3.right).normalized;
                     si.Width = text.size.x / unit;
-                    si.Height = text.size.z / unit;
+                    si.Letter = LetterSize(si.Label) / unit;
+                    var art = ButtonArt(anchor, si);
+                    float textAt = Vector3.Dot(si.Centre, si.Right);
+                    si.Middle = art.size.x > 0f ? Vector3.Dot(anchor.InverseTransformPoint(art.center), si.Right) : textAt;
+                    si.Across = art.size.x > 0f ? art.size.x / unit : si.Box * Mathf.Abs(si.Label.transform.lossyScale.x) / unit;
                     si.Turn = Quaternion.Inverse(anchor.rotation);
                     si.Measured = true;
+                    if (!si.Narrowed)
+                        Plugin.Log.LogInfo($"Replays strip: {anchor.name} label '{si.Label.Text}' drawn {si.Width:0.###} x " +
+                                           $"{text.size.z / unit:0.###}, letter {si.Letter:0.###}, text at {textAt:0.###}, " +
+                                           $"button {si.Middle:0.###} across {si.Across:0.###}");
                 }
-                float h = l.StripIconSize * si.Height, w = h * si.Aspect, gap = l.StripIconGap * h;
+                float h = l.StripIconSize * si.Letter, w = h * si.Aspect, gap = l.StripIconGap * h;
                 if (!si.Narrowed)
                 {
-                    // The label's box less the icon and its gap (in the label's own units), so a long language's label
-                    // shrinks to the room beside the icon rather than under it; measured again once it has.
                     float labelUnit = Mathf.Abs(si.Label.transform.lossyScale.x);
                     if (labelUnit > 0f)
                     {
-                        float box = si.Box - w * Mathf.Abs(anchor.lossyScale.x) / labelUnit; // the gap is the box's own slack
-                        if (box > 0.05f && box < si.Label.Width) { si.Label.Width = box; si.Measured = false; }
+                        float room = si.Across * l.StripField - w - gap; // the label's room, in the anchor's units
+                        float box = Mathf.Min(si.Box, room * Mathf.Abs(anchor.lossyScale.x) / labelUnit);
+                        if (box > 0.05f && Mathf.Abs(box - si.Label.Width) > 0.001f)
+                        {
+                            si.Label.Width = box;
+                            Fit.Now(si.Label);
+                            si.Measured = false;
+                        }
                     }
                     si.Narrowed = true;
                     if (!si.Measured) continue;
                 }
-                si.Label.transform.position = anchor.TransformPoint(si.LabelAt + si.Right * ((w + gap) / 2f));
-                si.Icon.localPosition = si.Centre - si.Right * ((si.Width + gap) / 2f);
+                // The group (icon, gap, drawn label) centred on the button's middle.
+                float left = si.Middle - (w + gap + si.Width) / 2f;
+                float labelShift = left + w + gap + si.Width / 2f - Vector3.Dot(si.Centre, si.Right);
+                si.Label.transform.position = anchor.TransformPoint(si.LabelAt + si.Right * labelShift);
+                var iconAt = si.Centre + si.Right * (left + w / 2f - Vector3.Dot(si.Centre, si.Right));
+                si.Icon.localPosition = iconAt;
                 si.Icon.localRotation = si.Turn;
                 si.Icon.localScale = Vector3.one * h;
             }
+        }
+
+        /// <summary>A label's letter size in world units as set (CharacterSize and the font's modifier), before
+        /// ResizeToFit shrinks it: the same for "Import" and "Importieren".</summary>
+        private static float LetterSize(UberText label)
+        {
+            float modifier = 1f;
+            try { modifier = Traverse.Create(label).Field("m_CharacterSizeModifier").GetValue<float>(); }
+            catch (Exception e) { Plugin.Log.LogDebug("Replays strip letter size: " + e.Message); }
+            if (modifier <= 0f) modifier = 1f;
+            return label.CharacterSize * modifier * 0.01f * Mathf.Abs(label.transform.lossyScale.x);
+        }
+
+        /// <summary>The world bounds of a strip button's own art (its renderers under the moving part, the label,
+        /// the icon and glow quads left out): its middle and width place the icon and label.</summary>
+        private static Bounds ButtonArt(Transform anchor, StripIcon si)
+        {
+            var b = new Bounds();
+            bool any = false;
+            foreach (var r in anchor.GetComponentsInChildren<Renderer>())
+            {
+                if (!r.enabled || r.transform.IsChildOf(si.Label.transform) || r.transform.IsChildOf(si.Icon)) continue;
+                if (!any) { b = r.bounds; any = true; }
+                else b.Encapsulate(r.bounds);
+                if (!si.Narrowed && !si.Logged)
+                    Plugin.Log.LogInfo($"Replays strip: {anchor.name} art {r.name} x {r.bounds.min.x:0.###}..{r.bounds.max.x:0.###}");
+            }
+            si.Logged = true;
+            return b;
         }
 
         /// <summary>The import glyph, a unit tall.</summary>
