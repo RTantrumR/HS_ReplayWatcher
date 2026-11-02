@@ -326,6 +326,9 @@ namespace HsPuzzleBridge
             yield return new WaitForSecondsRealtime(0.5f);
             yield return Shot(dir, tipName, 1f, done);
             HideEmptyTip();
+            Try("empty list ? click", TourEmptyTap);
+            yield return new WaitForSecondsRealtime(1.5f);
+            yield return Shot(dir, tipName.Replace("-tip", "-click").Replace("b-", "c-"), 1f, done);
             _shownVersion = -1;
             yield return null;
         }

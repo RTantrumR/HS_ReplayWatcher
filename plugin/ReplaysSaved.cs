@@ -2,6 +2,7 @@ using HsPuzzleBridge.Localization;
 using System;
 using System.IO;
 using System.Linq;
+using HarmonyLib;
 using Hearthstone.UI;
 using UnityEngine;
 
@@ -85,9 +86,12 @@ namespace HsPuzzleBridge
             {
                 try
                 {
-                    StripReleasedActions(w.gameObject); // the lobby's opens the game's Battlegrounds guide
+                    // The lobby's opens the game's Battlegrounds guide twice over: its Clickable's released state sends
+                    // InfoButtonClicked up, and the button itself bubbles INFOPOPUP_show up on a tap.
+                    StripReleasedActions(w.gameObject);
                     var b = w.GetComponentInChildren<UIBButton>(true);
                     if (b == null) { Plugin.Log.LogWarning("Replays: the ? button has no UIBButton"); return; }
+                    Traverse.Create(b).Field("m_bubbleUpEvent").SetValue(null);
                     b.AddEventListener(UIEventType.ROLLOVER, e => ShowEmptyTip());
                     b.AddEventListener(UIEventType.ROLLOUT, e => HideEmptyTip());
                     w.transform.localScale = Vector3.one;
@@ -180,6 +184,16 @@ namespace HsPuzzleBridge
 
         /// <summary>For the tour: the shown list's tooltip as on hover.</summary>
         internal static void TourEmptyTip() => ShowEmptyTip();
+
+        /// <summary>For the tour: the ? pressed, tapped and released as a click does (it must open nothing).</summary>
+        internal static void TourEmptyTap()
+        {
+            var b = _emptyHelp != null ? _emptyHelp.GetComponentInChildren<UIBButton>(true) : null;
+            if (b == null) return;
+            b.TriggerPress();
+            b.TriggerTap();
+            b.TriggerRelease();
+        }
 
         private static void CreateViewArrows()
         {
