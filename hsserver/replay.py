@@ -443,7 +443,12 @@ class ReplayData:
         return out
 
     def _find_gaps(self, rec: Recording, t0: float) -> list[Gap]:
-        """One Gap per reconnect line: from the last packet before it to where the reconnect landed."""
+        """One Gap per reconnect line: from the last packet before it to where the reconnect landed.
+
+        The windows run from the burst's first packet, not from the reconnect line: the line is written when the
+        client starts connecting, and a game server answers seconds later (4.8-11.4 s on real connects). Measured
+        from the line, a late burst landed before its own first packet, so the reset left that packet next and the
+        reconnect sequence played again, forever."""
         seqs = [p[3] for p in self.plan]
         gaps = []
         for r in rec.reconnects:
@@ -452,17 +457,17 @@ class ReplayData:
                 continue
             start = float(self.plan[first - 1][0])
             reconnect = float(r.get("ms", 0) - t0)
+            answer = self.plan[first][0]
             land = None
             for rel, ptype, _, _ in self.plan[first:]:
-                if rel > reconnect + RECONNECT_SETTLE_MS:
+                if rel > answer + RECONNECT_SETTLE_MS:
                     break
                 if ptype in (ALL_OPTIONS, ENTITY_CHOICES):
                     land = float(rel)
                     break
             if land is None:
-                burst = [rel for rel, _, _, _ in self.plan[first:] if rel <= reconnect + RECONNECT_BURST_MS]
-                land = float(burst[-1]) if burst else reconnect
-            gaps.append(Gap(start=start, reconnect=reconnect, land=max(land, start), first=first))
+                land = float(max(rel for rel, _, _, _ in self.plan[first:] if rel <= answer + RECONNECT_BURST_MS))
+            gaps.append(Gap(start=start, reconnect=reconnect, land=land, first=first))
         return gaps
 
     def _gap_for_index(self, i: int) -> Gap | None:
