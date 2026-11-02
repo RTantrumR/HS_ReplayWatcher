@@ -256,12 +256,12 @@ namespace HsPuzzleBridge
                 _sort.onUserCancelled();
                 yield return new WaitForSecondsRealtime(0.4f);
             }
-            yield return EmptyShot(dir, "05-empty-saved", _emptyText, done);
+            yield return EmptyShot(dir, "05-empty-saved", "05b-empty-saved-tip", _emptyText, done);
 
             ReplayLibrary.Show(ReplayLibrary.Imported);
             yield return new WaitForSecondsRealtime(1.2f);
             yield return Shot(dir, "06-imported", 1f, done);
-            yield return EmptyShot(dir, "07-empty-imported", _importedEmptyText, done);
+            yield return EmptyShot(dir, "07-empty-imported", "07b-empty-imported-tip", _importedEmptyText, done);
 
             ReplayLibrary.Show(ReplayLibrary.Recent);
             yield return new WaitForSecondsRealtime(0.8f);
@@ -313,7 +313,7 @@ namespace HsPuzzleBridge
 
         /// <summary>A strip's empty-list line shown where it goes (the list may not be empty: the line is what is
         /// checked), then the view as it was.</summary>
-        private static IEnumerator EmptyShot(string dir, string name, RowText empty, List<string> done)
+        private static IEnumerator EmptyShot(string dir, string name, string tipName, RowText empty, List<string> done)
         {
             if (empty == null) yield break;
             ShowStripText(_sizeText, false);
@@ -322,6 +322,10 @@ namespace HsPuzzleBridge
             PlaceViewControls(Layout.Current);
             yield return new WaitForSecondsRealtime(0.5f);
             yield return Shot(dir, name, 1f, done);
+            Try("empty list tooltip", TourEmptyTip);
+            yield return new WaitForSecondsRealtime(0.5f);
+            yield return Shot(dir, tipName, 1f, done);
+            HideEmptyTip();
             _shownVersion = -1;
             yield return null;
         }

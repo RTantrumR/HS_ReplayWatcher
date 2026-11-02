@@ -303,14 +303,17 @@ namespace HsPuzzleBridge
         /// padding (at most `width`, the text's box, where it wraps); without, its box of that width is placed
         /// by the edge and the text aligned inside it.
         /// A widget's text draws at the centre of its rect, not at its transform (the stock name's rect sits well
-        /// below it), so the transform is moved by that offset.</summary>
-        private static void PlaceStripText(RowText t, float x, float z, float width, Layout l, UberText.AlignmentOptions align)
+        /// below it), so the transform is moved by that offset. `trail` keeps room after the text (the empty lists'
+        /// ? button): text and room are placed as one. Returns the plate's (else the box's) right end.</summary>
+        private static float PlaceStripText(RowText t, float x, float z, float width, Layout l, UberText.AlignmentOptions align,
+                                            float trail = 0f)
         {
-            if (t?.T == null) return;
+            if (t?.T == null) return x;
             var tr = t.T;
             float scale = l.StripTextScale * RowTextUnit();
             tr.localScale = Vector3.one * scale;
             t.Text.Anchor = UberText.AnchorOptions.Middle;
+            width = Mathf.Max(1f, width - trail);
             t.Text.Width = width / scale;
             Fit.Now(t.Text);
             int style = Mathf.Clamp(Mathf.RoundToInt(l.StripPlate), 0, PlateStyles.Length - 1);
@@ -322,14 +325,15 @@ namespace HsPuzzleBridge
                 if (drawn > 0f) w = Mathf.Min(width, drawn + 2f * l.StripPlatePad);
             }
             else t.Text.Alignment = align;
-            float centre = align == UberText.AlignmentOptions.Right ? x - w / 2f
-                         : align == UberText.AlignmentOptions.Left ? x + w / 2f : x;
+            float centre = align == UberText.AlignmentOptions.Right ? x - trail - w / 2f
+                         : align == UberText.AlignmentOptions.Left ? x + w / 2f : x - trail / 2f;
             var textCentre = Traverse.Create(t.Text).Method("GetTextCenter").GetValue<Vector3>();
             var off = _strip.InverseTransformVector(tr.TransformVector(textCentre));
             tr.localPosition = new Vector3(centre - off.x, 0.5f, z - off.z);
             float h = l.StripPlateH * (style != 0 && t.Text.IsMultiLine() ? 2f : 1f);
             SetPlate(_strip, AnyBuiltRow(), true, t, style, new Vector3(centre, 0.35f, z), w, h);
             if (t.Plate != null && t.Plate.activeSelf != tr.gameObject.activeSelf) t.Plate.SetActive(tr.gameObject.activeSelf);
+            return centre + w / 2f;
         }
 
         /// <summary>The drawn text's width in the strip's units (its mesh's bounds, laid flat), 0 when it can't be

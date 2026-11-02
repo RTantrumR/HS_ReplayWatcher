@@ -199,6 +199,7 @@ namespace HsPuzzleBridge
             _hiddenAt = Time.unscaledTime;
             _wheelOn = false;
             ReplaysOptions.Hide();
+            HideEmptyTip();
             ReplayLibrary.Close();
             if (_page != null) _page.TriggerEvent("HIDE");
         }
@@ -321,9 +322,12 @@ namespace HsPuzzleBridge
             // The strip's texts (copies of the row's name text, as the rows' texts are): size, box width in row
             // units; the empty lists' line's width.
             public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 38f;
-            // The empty Imported list's line: between the sort menu (its right end near 21) and the Import button
-            // (its left end near 55), which the Saved view's line (centred at SizeX) would run under.
+            // The empty Imported list's notice and its ?: between the sort menu (its right end near 21) and the
+            // Import button (its left end near 55), which the Saved view's (centred at SizeX) would run under.
             public float ImportedEmptyX = 38f, ImportedEmptyWidth = 34f;
+            // The empty lists' round ? (the BG lobby's InfoButton): its width, the gap after the notice's plate and a
+            // move down (strip units); its tooltip's width and gap under it.
+            public float EmptyHelpSize = 3.2f, EmptyHelpGap = 0.8f, EmptyHelpZ = 0f, EmptyTipWidth = 26f, EmptyTipGap = 0.5f;
             // The strip texts' plate (see PlateStyles; 0 none; the title's ribbon by default: the frame's band and
             // pill are too faint on the parchment), its height and the padding round the text; their colour
             // ("" = as the rows' length text).

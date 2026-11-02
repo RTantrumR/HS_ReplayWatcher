@@ -1,6 +1,7 @@
 using HsPuzzleBridge.Localization;
 using System;
 using System.IO;
+using System.Linq;
 using Hearthstone.UI;
 using UnityEngine;
 
@@ -43,16 +44,142 @@ namespace HsPuzzleBridge
             if (!tabs) CreateViewArrows();
             if (_stripTextSource != null)
             {
-                // The empty saved list's line: another copy of the row's name text, where the slider is.
+                // The empty lists' notices: more copies of the row's name text, one line each, where the size goes;
+                // the round ? beside them tells the rest.
                 _emptyText = NewText(_stripTextSource, "SavedEmpty", Strings.T("page.empty.saved"), _strip);
-                Fit.Wrap(_emptyText.Text);
+                Fit.Label(_emptyText.Text);
                 ShowStripText(_emptyText, false);
                 _importedEmptyText = NewText(_stripTextSource, "ImportedEmpty", Strings.T("page.empty.imported"), _strip);
-                Fit.Wrap(_importedEmptyText.Text);
+                Fit.Label(_importedEmptyText.Text);
                 ShowStripText(_importedEmptyText, false);
+                CreateEmptyHelp();
             }
             PlaceViewControls(Layout.Current);
         }
+
+        // ------------------------------------------------------------------ the empty lists' ? button
+
+        /// <summary>The BG lobby's own round ? button (its InfoButton widget), should the lobby's not be found.</summary>
+        private const string InfoButtonPrefab = "InfoButton.prefab:8e5dfa80406cb834aa17883b26045ddd";
+
+        private static WidgetInstance _emptyHelp;
+        private static Quaternion _emptyHelpTurn;
+        private static float _emptyHelpUnit; // the button's width in the strip's units at local scale 1 (0 = not ready)
+        private static TooltipZone _emptyTipZone;
+        private static TooltipPanel _emptyTip;
+
+        /// <summary>A copy of the BG lobby's round ? button beside the empty lists' notice; hovering it shows the
+        /// game's tooltip panel under it with the rest of the notice (<see cref="ShowEmptyTip"/>).</summary>
+        private static void CreateEmptyHelp()
+        {
+            if (_strip == null || _emptyHelp != null) return;
+            var lobby = LobbyInfoButton();
+            string asset = (lobby != null ? AssetOf(lobby) : null) ?? InfoButtonPrefab;
+            _emptyHelpTurn = lobby != null ? lobby.transform.rotation
+                           : _statsButton != null ? _statsButton.transform.rotation : _strip.rotation;
+            var w = WidgetInstance.Create(asset);
+            w.name = "EmptyHelp";
+            w.transform.SetParent(_strip, false);
+            w.gameObject.layer = _strip.gameObject.layer;
+            w.RegisterReadyListener(_ =>
+            {
+                try
+                {
+                    StripReleasedActions(w.gameObject); // the lobby's opens the game's Battlegrounds guide
+                    var b = w.GetComponentInChildren<UIBButton>(true);
+                    if (b == null) { Plugin.Log.LogWarning("Replays: the ? button has no UIBButton"); return; }
+                    b.AddEventListener(UIEventType.ROLLOVER, e => ShowEmptyTip());
+                    b.AddEventListener(UIEventType.ROLLOUT, e => HideEmptyTip());
+                    w.transform.localScale = Vector3.one;
+                    w.transform.rotation = _emptyHelpTurn;
+                    var face = w.GetComponentsInChildren<Renderer>(true).FirstOrDefault(r => r.name.StartsWith("InfoButton_mesh"));
+                    var size = face != null ? face.bounds.size : RendererBounds(w.gameObject).size;
+                    _emptyHelpUnit = Mathf.Max(size.x, size.z) / Mathf.Abs(_strip.lossyScale.x);
+                    Plugin.Log.LogInfo($"Replays: ? button ready ({asset}, {_emptyHelpUnit:0.###} strip units at scale 1)");
+                    ShowView();
+                }
+                catch (Exception e) { Plugin.Log.LogWarning("Replays ? button setup: " + e); }
+            });
+            _emptyHelp = w;
+        }
+
+        /// <summary>The BG lobby's InfoButton widget (the round ?), found above the stats button.</summary>
+        private static WidgetInstance LobbyInfoButton()
+        {
+            for (var t = _statsButton != null ? _statsButton.transform : null; t != null; t = t.parent)
+                if (t.name.StartsWith("BaconLobby"))
+                {
+                    var info = t.GetComponentsInChildren<WidgetInstance>(true).FirstOrDefault(w => w.name == "InfoButton");
+                    if (info != null) return info;
+                }
+            Plugin.Log.LogInfo("Replays: no InfoButton in the BG lobby; the ? is made from its prefab");
+            return null;
+        }
+
+        /// <summary>The ? EmptyHelpGap after the shown notice's plate, EmptyHelpSize wide, on its line.</summary>
+        private static void PlaceEmptyHelp(Layout l, float right, bool shown)
+        {
+            if (_emptyHelp == null) return;
+            bool on = shown && _emptyHelpUnit > 0f;
+            if (_emptyHelpUnit > 0f && _emptyHelp.gameObject.activeSelf != on) _emptyHelp.gameObject.SetActive(on);
+            if (!on) { HideEmptyTip(); return; }
+            var t = _emptyHelp.transform;
+            t.localScale = Vector3.one * (l.EmptyHelpSize / _emptyHelpUnit);
+            t.rotation = _emptyHelpTurn;
+            t.localPosition = new Vector3(right + l.EmptyHelpGap + l.EmptyHelpSize / 2f, 1f, l.SizeZ + l.EmptyHelpZ);
+        }
+
+        /// <summary>The game's tooltip panel under the ?: the shown list's title and its notice's rest, EmptyTipWidth
+        /// strip units wide (the body wraps to it and the panel grows down, so a long language takes more lines).</summary>
+        private static void ShowEmptyTip()
+        {
+            HideEmptyTip();
+            if (_emptyHelp == null || !_emptyHelp.gameObject.activeInHierarchy) return;
+            if (_emptyTipZone == null)
+            {
+                // The cards' keyword panel (no pointer) while the game has its manager, else the Battle.net bar's
+                // menu tooltip (whose pointer, drawn into its bottom cap, points down at nothing here).
+                var keyword = TooltipPanelManager.Get() != null ? TooltipPanelManager.Get().m_tooltipPanelPrefab : null;
+                var bar = BnetBar.Get();
+                var zone = bar != null && bar.m_menuButton != null ? bar.m_menuButton.GetComponent<TooltipZone>() : null;
+                var go = new GameObject("EmptyTipZone") { layer = _strip.gameObject.layer };
+                go.transform.SetParent(_strip, false);
+                _emptyTipZone = go.AddComponent<TooltipZone>();
+                _emptyTipZone.tooltipPrefab = keyword != null ? keyword.gameObject : zone != null ? zone.tooltipPrefab : null;
+                Plugin.Log.LogInfo("Replays ? tooltip: " + (keyword != null ? "the keyword panel " + keyword.name
+                                   : "the Battle.net bar's tooltip (no keyword panel manager)"));
+            }
+            if (_emptyTipZone.tooltipPrefab == null) { Plugin.Log.LogWarning("Replays ? tooltip: no tooltip prefab"); return; }
+            bool imported = ReplayLibrary.Current == ReplayLibrary.Imported;
+            _emptyTip = _emptyTipZone.ShowTooltip(
+                Strings.T(imported ? "page.empty.imported.title" : "page.empty.saved.title"),
+                Strings.T(imported ? "page.empty.imported.body" : "page.empty.saved.body"), 0.7f);
+            if (_emptyTip == null) return;
+            var l = Layout.Current;
+            var tr = _emptyTip.transform;
+            LayerUtils.SetLayer(_emptyTip.gameObject, _strip.gameObject.layer);
+            tr.rotation = Quaternion.identity;
+            tr.localScale = Vector3.one;
+            var tip = RendererBounds(_emptyTip.gameObject);
+            float want = l.EmptyTipWidth * Mathf.Abs(_strip.lossyScale.x);
+            if (tip.size.x > 0f) tr.localScale = Vector3.one * (want / tip.size.x);
+            // Its top centre just under the button, a little towards the camera (over the rows).
+            var button = RendererBounds(_emptyHelp.gameObject);
+            tip = RendererBounds(_emptyTip.gameObject);
+            float gap = l.EmptyTipGap * Mathf.Abs(_strip.lossyScale.x);
+            tr.position += new Vector3(button.center.x - tip.center.x, button.max.y + 2f - tip.min.y,
+                                       button.min.z - gap - tip.max.z);
+        }
+
+        private static void HideEmptyTip()
+        {
+            if (_emptyTip == null) return;
+            _emptyTip = null;
+            try { _emptyTipZone?.HideTooltip(); } catch (Exception e) { Plugin.Log.LogDebug("Replays ? tooltip: " + e.Message); }
+        }
+
+        /// <summary>For the tour: the shown list's tooltip as on hover.</summary>
+        internal static void TourEmptyTip() => ShowEmptyTip();
 
         private static void CreateViewArrows()
         {
@@ -112,10 +239,22 @@ namespace HsPuzzleBridge
                     _arrowNext.rotation = r;
                 }
             }
+            // The empty lists' notices with the ? after them, the two centred together.
+            float help = _emptyHelpUnit > 0f ? l.EmptyHelpGap + l.EmptyHelpSize : 0f;
+            float right = 0f;
+            bool shown = false;
             if (_emptyText != null)
-                PlaceStripText(_emptyText, l.SizeX, l.SizeZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center);
+            {
+                float r = PlaceStripText(_emptyText, l.SizeX, l.SizeZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center, help);
+                if (_emptyText.T.gameObject.activeSelf) { right = r; shown = true; }
+            }
             if (_importedEmptyText != null)
-                PlaceStripText(_importedEmptyText, l.ImportedEmptyX, l.SizeZ, l.ImportedEmptyWidth, l, UberText.AlignmentOptions.Center);
+            {
+                float r = PlaceStripText(_importedEmptyText, l.ImportedEmptyX, l.SizeZ, l.ImportedEmptyWidth, l,
+                                         UberText.AlignmentOptions.Center, help);
+                if (_importedEmptyText.T.gameObject.activeSelf) { right = r; shown = true; }
+            }
+            PlaceEmptyHelp(l, right, shown);
         }
 
         /// <summary>The view's size, or the empty lines (saved or imported, none yet), and its buttons.</summary>
