@@ -326,8 +326,8 @@ namespace HsPuzzleBridge
             // Import button (its left end near 55), which the Saved view's (centred at SizeX) would run under.
             public float ImportedEmptyX = 38f, ImportedEmptyWidth = 34f;
             // The empty lists' round ? (the BG lobby's InfoButton): its width, the gap after the notice's plate and a
-            // move down (strip units); its tooltip's width and gap under it.
-            public float EmptyHelpSize = 3.2f, EmptyHelpGap = 0.8f, EmptyHelpZ = 0f, EmptyTipWidth = 26f, EmptyTipGap = 0.5f;
+            // move down (strip units); its tooltip's body letter size against the notice's, and its gap under it.
+            public float EmptyHelpSize = 3.2f, EmptyHelpGap = 0.8f, EmptyHelpZ = 0f, EmptyTipText = 1.15f, EmptyTipGap = 0.5f;
             // The strip texts' plate (see PlateStyles; 0 none; the title's ribbon by default: the frame's band and
             // pill are too faint on the parchment), its height and the padding round the text; their colour
             // ("" = as the rows' length text).

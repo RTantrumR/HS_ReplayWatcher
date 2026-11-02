@@ -133,8 +133,9 @@ namespace HsPuzzleBridge
             t.localPosition = new Vector3(right + l.EmptyHelpGap + l.EmptyHelpSize / 2f, 1f, l.SizeZ + l.EmptyHelpZ);
         }
 
-        /// <summary>The game's tooltip panel under the ?: the shown list's title and its notice's rest, EmptyTipWidth
-        /// strip units wide (the body wraps to it and the panel grows down, so a long language takes more lines).</summary>
+        /// <summary>The game's tooltip panel under the ?: the shown list's title and its notice's rest. Its body's
+        /// letters are EmptyTipText of the notice's (as set, so alike in every language); the panel fits its height
+        /// to the lines (ResizableTooltipPanel), so a long language takes more of them.</summary>
         private static void ShowEmptyTip()
         {
             HideEmptyTip();
@@ -164,12 +165,13 @@ namespace HsPuzzleBridge
             LayerUtils.SetLayer(_emptyTip.gameObject, _strip.gameObject.layer);
             tr.rotation = Quaternion.identity;
             tr.localScale = Vector3.one;
-            var tip = RendererBounds(_emptyTip.gameObject);
-            float want = l.EmptyTipWidth * Mathf.Abs(_strip.lossyScale.x);
-            if (tip.size.x > 0f) tr.localScale = Vector3.one * (want / tip.size.x);
+            var notice = imported ? _importedEmptyText : _emptyText;
+            float body = _emptyTip.m_body != null ? LetterSize(_emptyTip.m_body) : 0f;
+            float want = notice?.Text != null ? l.EmptyTipText * LetterSize(notice.Text) : 0f;
+            if (body > 0f && want > 0f) tr.localScale = Vector3.one * (want / body);
             // Its top centre just under the button, a little towards the camera (over the rows).
             var button = RendererBounds(_emptyHelp.gameObject);
-            tip = RendererBounds(_emptyTip.gameObject);
+            var tip = RendererBounds(_emptyTip.gameObject);
             float gap = l.EmptyTipGap * Mathf.Abs(_strip.lossyScale.x);
             tr.position += new Vector3(button.center.x - tip.center.x, button.max.y + 2f - tip.min.y,
                                        button.min.z - gap - tip.max.z);
