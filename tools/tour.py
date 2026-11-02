@@ -35,13 +35,14 @@ CROPS = {
     "06-imported": (340, 120, 1580, 300),
     "07-empty-imported": (340, 120, 1580, 200),
     "08-settings": (400, 100, 1520, 880),
+    "08b-settings-tip": (400, 100, 1520, 880),
     "17-lobby": (1300, 250, 1640, 500),
 }
 BAR = (160, 0, 1820, 345)
 
 
 def crop_for(surface: str, size: tuple[int, int]) -> tuple[int, int, int, int]:
-    box = CROPS.get(surface) or (BAR if surface[:1] in "beg" and surface[1:2].isdigit() else POPUP)
+    box = CROPS.get(surface) or (BAR if surface[:2] == "e-" or (surface[:1] in "bg" and surface[1:2].isdigit()) else POPUP)
     s = size[0] / 1920  # a bar shot is the top of the frame, so its rows are the frame's rows
     x0, y0, x1, y1 = box
     return (round(x0 * s), round(y0 * s), min(size[0], round(x1 * s)), min(size[1], round(y1 * s)))

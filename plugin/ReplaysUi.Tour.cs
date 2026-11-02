@@ -36,7 +36,7 @@ namespace HsPuzzleBridge
             try
             {
                 var lobby = _replaysButton != null ? _replaysButton.GetComponentInChildren<UIBButton>(true) : null;
-                if (lobby != null) { lobby.SetText(Strings.T("lobby.replays")); Fit.Label(lobby.m_ButtonText); }
+                if (lobby != null) { lobby.SetText(Strings.T("lobby.replays")); Fit.Label(lobby.m_ButtonText, keepLocale: true); }
                 if (_tabsBuilt)
                     for (int i = 0; i < _tabTexts.Length; i++)
                         if (_tabTexts[i] != null) { _tabTexts[i].Text = Strings.T(TabKeys[i]); Fit.Now(_tabTexts[i]); }
@@ -55,10 +55,17 @@ namespace HsPuzzleBridge
                 }
                 if (_sort != null)
                 {
-                    _sort.clearItems();
-                    for (int i = 0; i < SortKeys.Length; i++) _sort.addItem(SortLabel(i));
-                    foreach (var item in _sort.GetComponentsInChildren<DropdownMenuItem>(true)) Fit.Label(item.m_text);
+                    // The items keep their places and get the new words (clearing and adding them again cloned items
+                    // from a template whose selection bar the menu had lifted: the chosen one's text drew under it).
+                    var items = Traverse.Create(_sort).Field("m_items").GetValue<List<DropdownMenuItem>>();
+                    if (items != null)
+                        for (int i = 0; i < items.Count && i < SortKeys.Length; i++)
+                        {
+                            items[i].SetValue(SortLabel(i), SortLabel(i));
+                            Fit.Label(items[i].m_text);
+                        }
                     _sort.setSelection(SortLabel(SortOf(ReplayLibrary.Current)));
+                    if (_sort.m_selectedItem?.m_text != null) Fit.Label(_sort.m_selectedItem.m_text);
                 }
                 ReplaysOptions.Rebuild();
                 foreach (var set in Sets) set.BuiltVersion = -1;
@@ -262,9 +269,10 @@ namespace HsPuzzleBridge
             // play): passed over, so the shot shows the popup as a player sees it.
             Try("settings popup", ReplaysOptions.Show);
             yield return new WaitForSecondsRealtime(0.8f);
+            yield return Shot(dir, "08-settings", 1f, done);
             Try("settings tooltip", ReplaysOptions.TourTip);
             yield return new WaitForSecondsRealtime(0.5f);
-            yield return Shot(dir, "08-settings", 1f, done);
+            yield return Shot(dir, "08b-settings-tip", 1f, done);
             ReplaysOptions.Hide();
             yield return new WaitForSecondsRealtime(0.5f);
 
@@ -346,13 +354,12 @@ namespace HsPuzzleBridge
                 yield return new WaitForSecondsRealtime(0.6f);
                 yield return Shot(dir, $"b{i}-button", BarShare, done);
             }
-            int n = 0;
             foreach (var p in TourEvents())
             {
                 ReplayBar.TourMouse = ReplayBar.TrackPoint(p.Ms);
                 ReplayBar.TourEvent = p.Index;
                 yield return new WaitForSecondsRealtime(0.6f);
-                yield return Shot(dir, $"e{n++:00}-{Slug(p)}", BarShare, done);
+                yield return Shot(dir, "e-" + Slug(p), BarShare, done);
             }
             ReplayBar.TourEvent = -1;
             if (ReplayTimeline.Gaps.Count > 0)
@@ -366,14 +373,15 @@ namespace HsPuzzleBridge
             yield return new WaitForSecondsRealtime(0.3f);
         }
 
-        /// <summary>One event per kind of label (the longest text of each), so every phrase is seen once.</summary>
+        /// <summary>One event per kind of label (the first of each), so every phrase is seen once and every language
+        /// shows the same events (a sheet compares one event across the languages).</summary>
         private static IEnumerable<ReplayTimeline.Point> TourEvents()
         {
             var points = ReplayTimeline.Points;
             if (points == null) return Enumerable.Empty<ReplayTimeline.Point>();
             return points.Where(p => p != null)
                          .GroupBy(Slug)
-                         .Select(g => g.OrderByDescending(p => ReplayTimeline.Describe(p).Length).First())
+                         .Select(g => g.OrderBy(p => p.Ms).First())
                          .OrderBy(p => p.Ms)
                          .ToList();
         }
