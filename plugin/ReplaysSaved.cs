@@ -112,9 +112,10 @@ namespace HsPuzzleBridge
                     _arrowNext.rotation = r;
                 }
             }
-            foreach (var empty in new[] { _emptyText, _importedEmptyText })
-                if (empty != null)
-                    PlaceStripText(empty, l.SizeX, l.SizeZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center);
+            if (_emptyText != null)
+                PlaceStripText(_emptyText, l.SizeX, l.SizeZ, l.StripEmptyWidth, l, UberText.AlignmentOptions.Center);
+            if (_importedEmptyText != null)
+                PlaceStripText(_importedEmptyText, l.ImportedEmptyX, l.SizeZ, l.ImportedEmptyWidth, l, UberText.AlignmentOptions.Center);
         }
 
         /// <summary>The view's size, or the empty lines (saved or imported, none yet), and its buttons.</summary>

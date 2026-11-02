@@ -72,7 +72,7 @@ namespace HsPuzzleBridge
                     if (button == null) { Plugin.Log.LogWarning("Replays button: no UIBButton in the instance"); return; }
                     StripReleasedActions(_replaysButton.gameObject);
                     button.SetText(Strings.T("lobby.replays"));
-                    Fit.Label(button.m_ButtonText);
+                    Fit.Label(button.m_ButtonText, keepLocale: true);
                     button.AddEventListener(UIEventType.RELEASE, e => OpenPage());
                     Plugin.Log.LogInfo("Replays button ready");
                 }
@@ -321,6 +321,9 @@ namespace HsPuzzleBridge
             // The strip's texts (copies of the row's name text, as the rows' texts are): size, box width in row
             // units; the empty lists' line's width.
             public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 38f;
+            // The empty Imported list's line: between the sort menu (its right end near 21) and the Import button
+            // (its left end near 55), which the Saved view's line (centred at SizeX) would run under.
+            public float ImportedEmptyX = 38f, ImportedEmptyWidth = 34f;
             // The strip texts' plate (see PlateStyles; 0 none; the title's ribbon by default: the frame's band and
             // pill are too faint on the parchment), its height and the padding round the text; their colour
             // ("" = as the rows' length text).
@@ -350,7 +353,8 @@ namespace HsPuzzleBridge
             public float LengthPlate = 3f, LengthPlateW = 24.25f, LengthPlateH = 3f;
             // Each text's box (row units): the room it really has before the next text, since the plates overlap
             // (a longer language shrinks its text to this; 0 = its plate's width).
-            public float PlaceMaxW = 12.5f, DateMaxW = 10f, LengthMaxW = 11.5f;
+            // The place's: between the star's badge (its inner edge near 29.84) and the share arrow (near 38.28).
+            public float PlaceMaxW = 7.6f, DateMaxW = 10f, LengthMaxW = 11.5f;
             // The final hand (ReplaysUi.Hand.cs): the icon's centre and height (a card back's, row units), the backs'
             // tilt, the count's size and colour ("" = as the name); the hand out under the card (a click on the icon,
             // on a paper as big as the card, the cards spread across it): the focused card's lift and height (row
