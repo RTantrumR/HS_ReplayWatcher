@@ -21,11 +21,10 @@ namespace HsPuzzleBridge.Localization
             if (text == null) return;
             if (!keepLocale) OwnSize(text);
             ThaiRoom(text);
-            text.MinCharacterSize = text.CharacterSize * Smallest;
             text.WordWrap = false;
             text.ResizeToFitAndGrow = false;
             text.ResizeToFit = true;
-            Now(text);
+            Floor(text);
         }
 
         /// <summary>A sentence: wrapped in its box, which gets room for two lines (a copied one-line text's box
@@ -36,10 +35,20 @@ namespace HsPuzzleBridge.Localization
             text.Height = text.Height * 2f;
             OwnSize(text);
             TwoLinesEverywhere(text);
-            text.MinCharacterSize = text.CharacterSize * Smallest;
             text.WordWrap = true;
             text.ResizeToFitAndGrow = false;
             text.ResizeToFit = true;
+            Floor(text);
+        }
+
+        /// <summary>The shrink floor lowered to Smallest of the size, never raised: some prefabs keep their floor near
+        /// their size (our long words couldn't shrink), others are made far too big for their box and rely on the
+        /// shrink to bring them down tenfold (the settings popup's buttons: 30 in a box that fits ~3). A floor of 55 %
+        /// stopped those at five times their size, and UberText snaps a text that shrinks under its floor up to it:
+        /// "완료", "完了", "完成" (koKR, jaJP, zhCN "Done") drew huge, seen 2026-11-02 in a client started in Korean.</summary>
+        private static void Floor(UberText text)
+        {
+            text.MinCharacterSize = UnityEngine.Mathf.Min(text.MinCharacterSize, text.CharacterSize * Smallest);
             Now(text);
         }
 
