@@ -11,6 +11,12 @@ through a fight, or watch at up to x4.
 
 ![A replay in the shop, with the replay bar and its timeline at the top of the screen](images/replay-bar.webp)
 
+<p>
+<a href="images/replays-fr.webp"><img src="images/replays-fr.webp" width="32%" alt="The Replays page in French: the Imported tab"></a>
+<a href="images/replays-zh-tw.webp"><img src="images/replays-zh-tw.webp" width="32%" alt="The Replays page in Traditional Chinese: the Imported tab"></a>
+<a href="images/replays-de.webp"><img src="images/replays-de.webp" width="32%" alt="The Replays page in German: the Recent tab with a game's final hand open"></a>
+</p>
+
 - **Replays page:** one card per game — hero, hero powers, trinkets, final board and hand, place, date and
   length. Hover an icon to read it as it ended the game. **Watch** plays the game back.
 - **Replay bar:** previous/next event and turn, pause, speed, and a timeline of the whole game with its fights
