@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -27,7 +28,7 @@ namespace HsPuzzleBridge
         [Serializable]
         private sealed class ImportResult
         {
-            public string file = "", result = "", id = "", reason = "", hero = "", start = "";
+            public string file = "", result = "", id = "", reason = "", code = "", detail = "", hero = "", start = "";
             public int place = 0; // filled by JsonUtility
         }
 
@@ -38,23 +39,21 @@ namespace HsPuzzleBridge
             if (string.IsNullOrEmpty(r.hero)) return r.file.Replace('_', ' ');
             string hero = r.hero;
             try { hero = DefLoader.Get()?.GetEntityDef(r.hero)?.GetName() ?? r.hero; } catch { }
-            string when = DateText(new ReplayLibrary.Entry { Start = r.start });
-            return r.place > 0 ? $"{hero}, {Ordinal(r.place)} place, {when}" : $"{hero}, {when}";
+            string when = Texts.Date(r.start);
+            return r.place > 0 ? Strings.F("import.name", hero, Texts.Place(r.place), when) : Strings.F("import.nameNoPlace", hero, when);
         }
 
         private static void PickImport() =>
-            FolderPicker.PickFiles("Import Hearthstone replays", "Replays and Power.log files|*.jsonl.gz;*.jsonl;*.gz;*.log|All files|*.*",
-                "A file window has opened (it may be behind the game). Please choose the replays to import: replay files " +
-                "others shared, or a Power.log.",
+            FolderPicker.PickFiles(Strings.T("import.dialog.title"), Strings.T("import.dialog.filter"), Strings.T("import.dialog.message"),
                 files => { if (files.Count > 0) Import(files); });
 
         /// <summary>Ctrl+V on the page: the copied files named as replays or logs are imported.</summary>
         private static void PasteImport()
         {
             var files = FileClipboard.GetFiles();
-            if (files.Count == 0) { ImportStatus("Copy a replay file first (in Explorer), then paste it here", true); return; }
+            if (files.Count == 0) { ImportStatus(Strings.T("import.paste.nothing"), true); return; }
             var wanted = files.Where(f => ImportTypes.Any(t => f.EndsWith(t, StringComparison.OrdinalIgnoreCase))).ToList();
-            if (wanted.Count == 0) { ImportStatus("The copied files aren't replays or Power.log files", true); return; }
+            if (wanted.Count == 0) { ImportStatus(Strings.T("import.paste.notReplays"), true); return; }
             Import(wanted);
         }
 
@@ -97,13 +96,13 @@ namespace HsPuzzleBridge
                 _import.BeginOutputReadLine();
                 _import.BeginErrorReadLine();
                 Plugin.Log.LogInfo($"Import: {files.Count} file(s)");
-                ImportStatus(files.Count == 1 ? "Importing the replay…" : $"Importing {files.Count} files…", false);
+                ImportStatus(Strings.N("import.running", files.Count), false);
             }
             catch (Exception e)
             {
                 Plugin.Log.LogWarning($"Import: didn't start ({start.FileName}): {e.Message}");
                 _import = null;
-                Alert("Couldn't import", e.Message);
+                Alert(Strings.T("alert.cantImport"), e.Message);
             }
         }
 
@@ -124,6 +123,18 @@ namespace HsPuzzleBridge
             }
             foreach (var r in results) Plugin.Log.LogInfo($"Import: {r.file}: {r.result} {r.id} {r.reason}");
             int imported = results.Count(r => r.result == "imported");
+            Alert(Strings.T(imported > 0 ? "import.result.some" : "import.result.none"), ImportText(results));
+            if (imported > 0)
+            {
+                ReplayServerProcess.ScanCatalog();
+                ReplayLibrary.Show(ReplayLibrary.Imported);
+            }
+        }
+
+        /// <summary>The results popup's text: the imported, those already there and those refused (with why).</summary>
+        private static string ImportText(List<ImportResult> results)
+        {
+            int imported = results.Count(r => r.result == "imported");
             var text = new StringBuilder();
             void Section(string title, IEnumerable<ImportResult> rs, Func<ImportResult, string> line)
             {
@@ -132,19 +143,22 @@ namespace HsPuzzleBridge
                 if (text.Length > 0) text.Append("\n\n");
                 text.Append(title);
                 foreach (var r in list.Take(6)) text.Append("\n").Append(line(r));
-                if (list.Count > 6) text.Append($"\n…and {list.Count - 6} more");
+                if (list.Count > 6) text.Append("\n").Append(Strings.F("import.more", list.Count - 6));
             }
-            Section(imported == 1 ? "Imported 1 replay:" : $"Imported {imported} replays:",
-                    results.Where(r => r.result == "imported"), ImportedName);
-            Section("Already there:", results.Where(r => r.result == "exists"), ImportedName);
-            Section("Not imported:", results.Where(r => r.result == "refused"), r => $"{ImportedName(r)}: {r.reason}");
-            if (results.Count == 0) text.Append("The import didn't answer (see BepInEx/LogOutput.log).");
-            Alert(imported > 0 ? "Replays imported" : "Nothing imported", text.ToString());
-            if (imported > 0)
-            {
-                ReplayServerProcess.ScanCatalog();
-                ReplayLibrary.Show(ReplayLibrary.Imported);
-            }
+            Section(Strings.N("import.section.imported", imported), results.Where(r => r.result == "imported"), ImportedName);
+            Section(Strings.T("import.section.exists"), results.Where(r => r.result == "exists"), ImportedName);
+            Section(Strings.T("import.section.refused"), results.Where(r => r.result == "refused"),
+                    r => Strings.F("import.refused", ImportedName(r), Reason(r)));
+            if (results.Count == 0) text.Append(Strings.T("import.noAnswer"));
+            return text.ToString();
+        }
+
+        /// <summary>Why a file was refused, in the language (the importer's code), else its English reason (an older
+        /// server, or a code the catalogs don't know).</summary>
+        private static string Reason(ImportResult r)
+        {
+            string key = "import.reason." + r.code;
+            return !string.IsNullOrEmpty(r.code) && Strings.Has(key) ? Strings.F(key, r.detail) : r.reason;
         }
 
         private static void ImportStatus(string text, bool error)

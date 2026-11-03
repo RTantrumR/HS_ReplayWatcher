@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -25,7 +26,6 @@ namespace HsPuzzleBridge
     /// </summary>
     internal static partial class ReplaysUi
     {
-        private const string ButtonText = "Replays", WatchText = "Watch";
         private const float ButtonDropWorld = 5.4f; // a button and a gap lower (0.061 world units per px at 1080p)
 
         private static WidgetInstance _statsButton, _replaysButton, _statsFrame, _page;
@@ -71,7 +71,8 @@ namespace HsPuzzleBridge
                     var button = _replaysButton.GetComponentInChildren<UIBButton>(true);
                     if (button == null) { Plugin.Log.LogWarning("Replays button: no UIBButton in the instance"); return; }
                     StripReleasedActions(_replaysButton.gameObject);
-                    button.SetText(ButtonText);
+                    button.SetText(Strings.T("lobby.replays"));
+                    Fit.Label(button.m_ButtonText, keepLocale: true);
                     button.AddEventListener(UIEventType.RELEASE, e => OpenPage());
                     Plugin.Log.LogInfo("Replays button ready");
                 }
@@ -156,6 +157,7 @@ namespace HsPuzzleBridge
             catch (Exception e) { Plugin.Log.LogWarning("Replays settings: " + e); }
             _pageReady = true;
             Plugin.Log.LogInfo("Replays page ready");
+            LocaleProbe.Log();
             if (_pageWanted) ShowPage();
         }
 
@@ -197,6 +199,7 @@ namespace HsPuzzleBridge
             _hiddenAt = Time.unscaledTime;
             _wheelOn = false;
             ReplaysOptions.Hide();
+            HideEmptyTip();
             ReplayLibrary.Close();
             if (_page != null) _page.TriggerEvent("HIDE");
         }
@@ -319,14 +322,22 @@ namespace HsPuzzleBridge
             // The strip's texts (copies of the row's name text, as the rows' texts are): size, box width in row
             // units; the empty lists' line's width.
             public float StripTextScale = 0.8f, StripTextWidth = 24f, StripEmptyWidth = 38f;
+            // The empty Imported list's notice and its ?: between the sort menu (its right end near 21) and the
+            // Import button (its left end near 55), which the Saved view's (centred at SizeX) would run under.
+            public float ImportedEmptyX = 38f, ImportedEmptyWidth = 34f;
+            // The empty lists' round ? (the BG lobby's InfoButton): its width, the gap after the notice's plate and a
+            // move down (strip units); its tooltip's body letter size against the notice's, and its gap under it.
+            public float EmptyHelpSize = 3.2f, EmptyHelpGap = 0.8f, EmptyHelpZ = 0f, EmptyTipText = 1.15f, EmptyTipGap = 0.5f;
             // The strip texts' plate (see PlateStyles; 0 none; the title's ribbon by default: the frame's band and
             // pill are too faint on the parchment), its height and the padding round the text; their colour
             // ("" = as the rows' length text).
             public float StripPlate = 4f, StripPlateH = 3.4f, StripPlatePad = 2f;
             public string StripColor = "";
-            // The Settings and Import buttons' icons: height against the drawn label's, the gap before the label (of
-            // the icon's height), and their colour ("" = the label's).
-            public float StripIconSize = 1.1f, StripIconGap = 0.3f;
+            // The Settings and Import buttons' icons: height against the label's letter size (as set, before any
+            // shrinking), the gap before the label (of the icon's height), the share of the button's width the icon
+            // and label keep to (the pale field is ~73 % of it at the label's row; the rest is rim and rounded ends),
+            // and their colour ("" = the label's).
+            public float StripIconSize = 5.2f, StripIconGap = 0.25f, StripField = 0.68f;
             public string StripIconColor = "";
             // Row pitches the list moves per notch of the mouse wheel (the stock scroll moves a tenth of the list);
             // the move glides (WheelStep), so quick notches add up.
@@ -346,6 +357,10 @@ namespace HsPuzzleBridge
             public float PlacePlate = 1f, PlacePlateW = 15.2f, PlacePlateH = 3.05f, PlacePlateShift = 0f;
             public float DatePlate = 3f, DatePlateW = 29.45f, DatePlateH = 3f;
             public float LengthPlate = 3f, LengthPlateW = 24.25f, LengthPlateH = 3f;
+            // Each text's box (row units): the room it really has before the next text, since the plates overlap
+            // (a longer language shrinks its text to this; 0 = its plate's width).
+            // The place's: between the star's badge (its inner edge near 29.84) and the share arrow (near 38.28).
+            public float PlaceMaxW = 7.6f, DateMaxW = 10f, LengthMaxW = 11.5f;
             // The final hand (ReplaysUi.Hand.cs): the icon's centre and height (a card back's, row units), the backs'
             // tilt, the count's size and colour ("" = as the name); the hand out under the card (a click on the icon,
             // on a paper as big as the card, the cards spread across it): the focused card's lift and height (row
@@ -952,9 +967,10 @@ namespace HsPuzzleBridge
             if (heroName != null)
             {
                 parts.Name = NewText(heroName, null, game.HeroName);
-                parts.PlaceText = NewText(heroName, "ReplayPlace", entry.Place > 0 ? Ordinal(entry.Place) + " place" : "");
-                parts.Date = NewText(heroName, "ReplayDate", DateText(entry));
-                parts.Length = NewText(heroName, "ReplayLength", $"{entry.Turns} turns, {entry.Minutes} min");
+                parts.PlaceText = NewText(heroName, "ReplayPlace", entry.Place > 0 ? Texts.Place(entry.Place) : "");
+                parts.Date = NewText(heroName, "ReplayDate", Texts.Date(entry.Start));
+                parts.Length = NewText(heroName, "ReplayLength", Strings.N("row.length", entry.Turns, entry.Minutes));
+                foreach (var t in new[] { parts.PlaceText, parts.Date, parts.Length }) Fit.Label(t.Text);
             }
             SetUpHand(parts, entry, heroName);
 
@@ -1146,10 +1162,11 @@ namespace HsPuzzleBridge
             PlaceBigCards(p);
             Text(p, p.Name, l.NameX, l.NameZ, l.NameScale, l.NameColor, l, l.NamePlate, l.NamePlateW, l.NamePlateH);
             Text(p, p.PlaceText, l.PlaceX, l.PlaceZ, l.PlaceScale, l.PlaceColor, l, l.PlacePlate, l.PlacePlateW,
-                 l.PlacePlateH, PlaceColor(p.Place), l.PlaceTextLift, l.PlacePlateShift);
-            Text(p, p.Date, l.DateX, l.DateZ, l.DateScale, l.DateColor, l, l.DatePlate, l.DatePlateW, l.DatePlateH);
+                 l.PlacePlateH, PlaceColor(p.Place), l.PlaceTextLift, l.PlacePlateShift, l.PlaceMaxW);
+            Text(p, p.Date, l.DateX, l.DateZ, l.DateScale, l.DateColor, l, l.DatePlate, l.DatePlateW, l.DatePlateH,
+                 maxW: l.DateMaxW);
             Text(p, p.Length, l.LengthX, l.LengthZ, l.LengthScale, l.LengthColor, l, l.LengthPlate, l.LengthPlateW,
-                 l.LengthPlateH);
+                 l.LengthPlateH, maxW: l.LengthMaxW);
             if (p.Watch != null && _statsButton != null)
             {
                 p.Watch.localPosition = new Vector3(l.WatchX, 1f, l.WatchZ);
@@ -1242,7 +1259,8 @@ namespace HsPuzzleBridge
         /// <summary>A text: without a plate, left-aligned with its box starting at x (the box is centred on its
         /// transform); with one, centred on the plate, which is centred at x, z (the text `lift` higher).</summary>
         private static void Text(RowParts p, RowText t, float x, float z, float scale, string color, Layout l,
-                                 float plate, float plateW, float plateH, Color? auto = null, float lift = 0f, float plateShift = 0f)
+                                 float plate, float plateW, float plateH, Color? auto = null, float lift = 0f, float plateShift = 0f,
+                                 float maxW = 0f)
         {
             if (t == null || t.T == null) return;
             int style = Mathf.Clamp(Mathf.RoundToInt(plate), 0, PlateStyles.Length - 1);
@@ -1252,15 +1270,19 @@ namespace HsPuzzleBridge
             t.Text.TextColor = ParseColor(color, auto ?? t.Default);
             if (style == 0)
             {
+                float box = maxW > 0f ? Mathf.Min(l.TextWidth, maxW) : l.TextWidth;
                 t.T.localPosition = new Vector3(x + l.TextWidth / 2f, y, z);
                 t.Text.Alignment = UberText.AlignmentOptions.Left;
-                t.Text.Width = l.TextWidth / scale;
+                t.Text.Width = box / scale;
+                Fit.Now(t.Text);
             }
             else
             {
+                float box = maxW > 0f ? Mathf.Min(plateW, maxW) : plateW;
                 t.T.localPosition = new Vector3(x, y, z);
                 t.Text.Alignment = UberText.AlignmentOptions.Center;
-                t.Text.Width = plateW / scale;
+                t.Text.Width = box / scale;
+                Fit.Now(t.Text);
                 // A widget's text draws at the centre of its widget rect, not at its transform (the stock name's
                 // rect sits well below it): move it so that centre is the plate's.
                 var centre = Traverse.Create(t.Text).Method("GetTextCenter").GetValue<Vector3>();
@@ -1364,15 +1386,6 @@ namespace HsPuzzleBridge
         internal static Color ParseColor(string hex, Color fallback) =>
             !string.IsNullOrEmpty(hex) && ColorUtility.TryParseHtmlString(hex, out var c) ? c : fallback;
 
-        private static string DateText(ReplayLibrary.Entry e) =>
-            DateTime.TryParse(e.Start, System.Globalization.CultureInfo.InvariantCulture,
-                              System.Globalization.DateTimeStyles.None, out var start)
-                ? start.ToString("MMM d, HH:mm", System.Globalization.CultureInfo.InvariantCulture)
-                : e.Start;
-
-        private static string Ordinal(int n) =>
-            n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : n % 10 == 1 ? "st" : n % 10 == 2 ? "nd" : n % 10 == 3 ? "rd" : "th");
-
         private static BaconPastGameStatsDataModel PastGame(ReplayLibrary.Entry e)
         {
             string name = e.Hero;
@@ -1449,7 +1462,8 @@ namespace HsPuzzleBridge
             {
                 StripReleasedActions(button.gameObject);
                 var b = button.GetComponentInChildren<UIBButton>(true);
-                b.SetText(WatchText);
+                b.SetText(Strings.T("lobby.watch"));
+                Fit.Label(b.m_ButtonText);
                 b.AddEventListener(UIEventType.RELEASE, e =>
                 {
                     HidePage();

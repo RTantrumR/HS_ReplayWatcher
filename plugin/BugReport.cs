@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -59,14 +60,11 @@ namespace HsPuzzleBridge
             string game = GameRecording();
             var info = new AlertPopup.PopupInfo
             {
-                m_headerText = "Report a bug",
-                m_text = "This opens a new issue on GitHub with your versions and PC details filled in.\n\n" +
-                         "The screenshot is copied: press Ctrl+V in the issue to add it. Drag the files from the folder " +
-                         "that opens" + (game != null ? " (the game and the logs)" : " (the logs)") +
-                         " into the issue too, and say what went wrong.",
+                m_headerText = Strings.T("bug.title"),
+                m_text = PopupText(game != null),
                 m_responseDisplay = AlertPopup.ResponseDisplay.CONFIRM_CANCEL,
                 m_iconSet = AlertPopup.PopupInfo.IconSet.Default,
-                m_confirmText = "Open GitHub",
+                m_confirmText = Strings.T("bug.open"),
                 m_cancelText = GameStrings.Get("GLOBAL_CANCEL"),
                 m_keyboardEscIsCancel = true,
                 m_responseCallback = (response, _) =>
@@ -91,6 +89,10 @@ namespace HsPuzzleBridge
                 _busy = false;
             }
         }
+
+        /// <summary>The popup's text (with a game: its copy is among the files to drag in).</summary>
+        internal static string PopupText(bool withGame) =>
+            Strings.F("bug.body", Strings.T(withGame ? "bug.filesGameAndLogs" : "bug.filesLogs"));
 
         private static void Send(Texture2D shot, string details, string game)
         {
@@ -204,7 +206,7 @@ namespace HsPuzzleBridge
                        (speed > 0f ? $"playing x{Mathf.RoundToInt(speed)}" : "paused") +
                        (ReplayTimeline.CombatPlaying ? ", in a fight" : "") + (Plugin.BarCompact.Value ? ", bar compact" : "");
             }
-            if (ReplaysUi.PageShown) return $"Replays page ({ReplayLibrary.Current.Title}, {ReplayLibrary.Entries.Count} games)";
+            if (ReplaysUi.PageShown) return $"Replays page ({ReplayLibrary.Current.Name}, {ReplayLibrary.Entries.Count} games, {Language.Describe()})";
             return "outside a replay (" + (SceneMgr.Get()?.GetMode().ToString() ?? "?") + ")";
         }
 

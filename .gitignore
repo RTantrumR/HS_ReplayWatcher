@@ -17,3 +17,6 @@ recordings/
 # Private: the docs are a repo of their own (RTantrumR/HS_ReplayWatcher-docs); CLAUDE.md imports them
 docs/
 CLAUDE.md
+
+# The pseudo-locale tools/check_strings.py --pseudo writes for fit tests (never shipped)
+plugin/lang/xxXX.json

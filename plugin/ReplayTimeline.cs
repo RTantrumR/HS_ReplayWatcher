@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -353,6 +354,13 @@ namespace HsPuzzleBridge
 
         // ------------------------------------------------------------------ labels
 
+        /// <summary>The language changed (the tour): card names and event labels made again at their next use.</summary>
+        internal static void Relabel()
+        {
+            Names.Clear();
+            if (Points != null) foreach (var p in Points) if (p != null) p.Text = null;
+        }
+
         public static string Name(string cardId)
         {
             if (string.IsNullOrEmpty(cardId)) return "";
@@ -368,31 +376,31 @@ namespace HsPuzzleBridge
         {
             if (p.Text != null) return p.Text;
             string card = Name(p.Card), target = Name(p.Target);
-            string on = target.Length > 0 ? " on " + target : "";
+            bool on = target.Length > 0; // the verb's keys come in pairs: with a target ("…On") and without
             switch (p.Verb)
             {
-                case "hero": p.Text = "Hero: " + card; break;
-                case "pick": p.Text = "Pick " + card; break;
-                case "buy": p.Text = "Buy " + card; break;
-                case "sell": p.Text = "Sell " + card; break;
-                case "play": p.Text = "Play " + card + on; break;
-                case "cast": p.Text = "Cast " + card + on; break;
-                case "upgrade": p.Text = p.Arg.Length > 0 ? "Upgrade tavern to tier " + p.Arg : "Upgrade tavern"; break;
-                case "refresh": p.Text = "Refresh"; break;
-                case "freeze": p.Text = "Freeze"; break;
-                case "hero power": p.Text = "Hero Power: " + card + on; break;
-                case "move": p.Text = "Move " + card; break;
-                case "move in shop": p.Text = "Move " + card + " in shop"; break;
-                case "activate": p.Text = "Activate " + card + on; break;
-                case "combat": p.Text = card.Length > 0 ? "Combat vs " + card : "Combat"; break;
-                case "attack": p.Text = card + " attacks" + (target.Length > 0 ? " " + target : ""); break;
-                case "deaths": p.Text = "Deaths"; break;
-                case "trigger": p.Text = card.Length > 0 ? card + " triggers" : "Trigger"; break;
-                case "end turn": p.Text = "End turn"; break;
-                default: p.Text = card.Length > 0 ? card + on : "Action"; break;
+                case "hero": p.Text = Strings.F("event.hero", card); break;
+                case "pick": p.Text = Strings.F("event.pick", card); break;
+                case "buy": p.Text = Strings.F("event.buy", card); break;
+                case "sell": p.Text = Strings.F("event.sell", card); break;
+                case "play": p.Text = on ? Strings.F("event.playOn", card, target) : Strings.F("event.play", card); break;
+                case "cast": p.Text = on ? Strings.F("event.castOn", card, target) : Strings.F("event.cast", card); break;
+                case "upgrade": p.Text = p.Arg.Length > 0 ? Strings.F("event.upgradeToTier", p.Arg) : Strings.T("event.upgrade"); break;
+                case "refresh": p.Text = Strings.T("event.refresh"); break;
+                case "freeze": p.Text = Strings.T("event.freeze"); break;
+                case "hero power": p.Text = on ? Strings.F("event.heroPowerOn", card, target) : Strings.F("event.heroPower", card); break;
+                case "move": p.Text = Strings.F("event.move", card); break;
+                case "move in shop": p.Text = Strings.F("event.moveInShop", card); break;
+                case "activate": p.Text = on ? Strings.F("event.activateOn", card, target) : Strings.F("event.activate", card); break;
+                case "combat": p.Text = card.Length > 0 ? Strings.F("event.combatVs", card) : Strings.T("event.combat"); break;
+                case "attack": p.Text = on ? Strings.F("event.attacks", card, target) : Strings.F("event.attacksAlone", card); break;
+                case "deaths": p.Text = Strings.T("event.deaths"); break;
+                case "trigger": p.Text = card.Length > 0 ? Strings.F("event.triggers", card) : Strings.T("event.trigger"); break;
+                case "end turn": p.Text = Strings.T("event.endTurn"); break;
+                default: p.Text = card.Length == 0 ? Strings.T("event.action") : on ? Strings.F("event.otherOn", card, target) : card; break;
             }
-            if (p.Kind == "ce") p.Text = "Back in the tavern";
-            if (p.Kind == "rc") p.Text = "Reconnected";
+            if (p.Kind == "ce") p.Text = Strings.T("event.backInTavern");
+            if (p.Kind == "rc") p.Text = Strings.T("event.reconnected");
             return p.Text;
         }
 

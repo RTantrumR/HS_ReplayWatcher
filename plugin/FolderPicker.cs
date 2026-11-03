@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -32,7 +33,7 @@ namespace HsPuzzleBridge
                 "$d.ShowNewFolderButton = $true\n" +
                 "$d.SelectedPath = [Environment]::GetFolderPath('MyDocuments')\n" +
                 "if ($d.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($d.SelectedPath) }\n";
-            Run(dialog, "Choose a folder", message, output => done(string.IsNullOrEmpty(output) ? null : output));
+            Run(dialog, Strings.T("folder.pick.header"), message, output => done(string.IsNullOrEmpty(output) ? null : output));
         }
 
         /// <summary>Ask for files (title: the file window's; filter: its file types, as Windows Forms writes them;
@@ -47,7 +48,7 @@ namespace HsPuzzleBridge
                 "$d.Multiselect = $true\n" +
                 "$d.InitialDirectory = Join-Path $env:USERPROFILE 'Downloads'\n" +
                 "if ($d.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { $d.FileNames | ForEach-Object { [Console]::Out.WriteLine($_) } }\n";
-            Run(dialog, "Choose replays", message, output =>
+            Run(dialog, Strings.T("folder.files.header"), message, output =>
             {
                 var files = new List<string>();
                 foreach (string line in (output ?? "").Split('\n'))

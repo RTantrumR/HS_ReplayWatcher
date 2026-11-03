@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -54,6 +55,20 @@ namespace HsPuzzleBridge
             AnimationUtil.ShowWithPunch(_root, 0.01f * _normalScale, 1.1f * _normalScale, _normalScale, null, noFade: true);
         }
 
+        /// <summary>The language changed (the tour): the popup is made again at its next Show, in the new words.</summary>
+        internal static void Rebuild()
+        {
+            Hide();
+            if (_root != null) UnityEngine.Object.Destroy(_root);
+            _root = null;
+        }
+
+        /// <summary>For the tour: the second box's tooltip, as a hover shows it.</summary>
+        internal static void TourTip()
+        {
+            if (Shown && _noAskDelete != null) ShowTip(_noAskDelete.transform);
+        }
+
         public static void Hide()
         {
             if (!Shown) return;
@@ -96,7 +111,7 @@ namespace HsPuzzleBridge
 
             var t = _root.transform;
             var title = Find(Find(t, "Header"), "UberText")?.GetComponent<UberText>();
-            if (title != null) title.Text = "Replay Settings";
+            if (title != null) { title.Text = Strings.T("options.title"); Fit.Label(title); }
 
             // Top inset: the keep slider (the master volume's) between its own label and a copy of it with the count
             // and the storage (laid out in one row by KeepRow).
@@ -109,13 +124,15 @@ namespace HsPuzzleBridge
             var keepLabel = Find(t, "MasterVolumeLabel")?.GetComponent<UberText>();
             if (keepLabel != null)
             {
-                keepLabel.Text = "Amount of recent replays kept";
+                keepLabel.Text = Strings.T("options.keepLabel");
+                Fit.Label(keepLabel);
                 var value = UnityEngine.Object.Instantiate(keepLabel.gameObject, keepLabel.transform.parent, false);
                 value.name = "KeepValue";
                 // The copy brings the original's rendered text object along; UberText makes its own (as NewText).
                 foreach (Transform child in value.transform)
                     if (child.name.StartsWith("UberText_RenderObject")) UnityEngine.Object.Destroy(child.gameObject);
                 _keepLabel = value.GetComponent<UberText>();
+                Fit.Label(_keepLabel);
                 _keepTitle = keepLabel;
             }
             if (_keep != null)
@@ -143,8 +160,8 @@ namespace HsPuzzleBridge
                     mono.position += step;
                 }
                 _noAskRemove = copy.GetComponent<CheckBox>();
-                _noAskRemove.SetButtonText("Don't ask when removing saved or imported replays");
-                _noAskDelete.SetButtonText("Don't ask when deleting saved replays");
+                _noAskRemove.SetButtonText(Strings.T("options.noAskRemove"));
+                _noAskDelete.SetButtonText(Strings.T("options.noAskDelete"));
                 // Labels three times as wide (the stock one wraps after ~25 letters); the box grows both ways
                 // round its centre, so it moves right by what it gained on the left.
                 foreach (var box in new[] { _noAskRemove, _noAskDelete })
@@ -153,6 +170,7 @@ namespace HsPuzzleBridge
                     if (label == null) continue;
                     float w = label.Width;
                     label.Width = w * 3f;
+                    Fit.Label(label);
                     label.transform.localPosition += new Vector3(w * label.transform.localScale.x, 0f, 0f);
                 }
                 _deleteLabel = _noAskDelete.m_uberText;
@@ -183,8 +201,8 @@ namespace HsPuzzleBridge
             KeepRow(t);
 
             // The double button: Open folder and Done.
-            Button(t, "Button_left", "ButtonText_left", "Open folder", OpenFolder);
-            Button(t, "Button_right", "ButtonText_right", "Done", Hide);
+            Button(t, "Button_left", "ButtonText_left", Strings.T("options.openFolder"), OpenFolder);
+            Button(t, "Button_right", "ButtonText_right", Strings.T("options.done"), Hide);
 
             var bar = BnetBar.Get();
             var zone = bar != null && bar.m_menuButton != null ? bar.m_menuButton.GetComponent<TooltipZone>() : null;
@@ -207,6 +225,7 @@ namespace HsPuzzleBridge
             var label = Find(b.transform, textName)?.GetComponent<UberText>();
             if (label != null) label.Text = text;
             else b.SetText(text);
+            Fit.Label(label ?? b.m_ButtonText);
             b.AddEventListener(UIEventType.RELEASE, e => onRelease());
         }
 
@@ -271,9 +290,7 @@ namespace HsPuzzleBridge
                 Plugin.Log.LogWarning("Replay settings: no tooltip prefab");
                 return;
             }
-            _tip = _tipZone.ShowTooltip("Don't ask when deleting",
-                "Unstarring a saved replay that is no longer among your recent replays, while those are full, deletes it " +
-                "for good. With this on, that happens without asking. Needs the box above.", 0.7f);
+            _tip = _tipZone.ShowTooltip(Strings.T("options.tip.title"), Strings.T("options.tip.body"), 0.7f);
             if (_tip == null) return;
             // The zone leaves the panel where it was made: it goes in the bottom inset's empty right half, level
             // with the two boxes as drawn (a checkbox's parts sit well off its origin), a little towards the
@@ -316,7 +333,7 @@ namespace HsPuzzleBridge
 
         private static void ShowKept(int kept)
         {
-            if (_keepLabel != null) _keepLabel.Text = $"{kept} replays, {kept * MbPerGame:0} MB";
+            if (_keepLabel != null) _keepLabel.Text = Strings.N("options.kept", kept, Texts.Number(kept * MbPerGame, "0"));
         }
 
         private static void OnKeptReleased()
@@ -331,8 +348,7 @@ namespace HsPuzzleBridge
                 Plugin.KeepGames.Value = kept;
                 return;
             }
-            ConfirmPopup.Ask("Keep fewer replays?",
-                drop == 1 ? "The oldest replay will be deleted." : $"The {drop} oldest replays will be deleted.", "Delete",
+            ConfirmPopup.Ask(Strings.T("options.keepFewer.title"), Strings.N("options.keepFewer.body", drop), Strings.T("options.delete"),
                 () =>
                 {
                     Plugin.KeepGames.Value = kept;

@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.IO;
 using BepInEx;
@@ -82,6 +83,9 @@ namespace HsPuzzleBridge
                 "The bug button opens a new issue here (its form, .github/ISSUE_TEMPLATE/bug_report.yml, takes the details).");
             UiDumpKey = Config.Bind("Debug", "UiDumpKey", KeyCode.F12,
                 "With Ctrl: write the scene's UI tree to BepInEx/ui_dump_N.txt (dev tool).");
+            Language.Override = Config.Bind("Localization", "Language", "",
+                "The language of the plugin's own texts. Empty: the game's language (Russian gets English). A client locale " +
+                "code (deDE, frFR, esES, esMX, ptBR, itIT, plPL, jaJP, koKR, zhCN, zhTW, thTH, enUS) forces that one.");
             FrameProbe = Config.Bind("Debug", "FrameProbe", false,
                 "Log every frame over 40 ms during a replay or on the Replays page, with the time each part of the plugin took (dev tool).");
 
@@ -92,7 +96,7 @@ namespace HsPuzzleBridge
         /// <summary>What the installer adds beside BepInEx: the replay server and its Python.</summary>
         private static string InstallDir => Path.Combine(Paths.BepInExRootPath, "HSReplayWatcher");
 
-        private static string DataDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HS Replay Watcher");
+        internal static string DataDir => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HS Replay Watcher");
 
         /// <summary>The recordings folder: the config's, else the chosen folder's Recent, else one under %LOCALAPPDATA%
         /// (an install keeps none in HS; its games move into Recent once a folder is chosen: <see cref="ReplayLibrary.SplitSavedDir"/>).</summary>
@@ -133,6 +137,7 @@ namespace HsPuzzleBridge
                 FolderPicker.Update();
                 ReplayShare.Update();
                 ReplaysUi.UpdateImport();
+                ReplaysUi.PollTour();
                 SpectatorJoin.Update();
                 CombatDoneNote.Update();
                 UiDump.Update();
@@ -155,6 +160,7 @@ namespace HsPuzzleBridge
             Probe("picker", FolderPicker.Update);
             Probe("share", ReplayShare.Update);
             Probe("import", ReplaysUi.UpdateImport);
+            Probe("tour", ReplaysUi.PollTour);
             Probe("spectator", SpectatorJoin.Update);
             Probe("combatnote", CombatDoneNote.Update);
             Probe("dump", UiDump.Update);

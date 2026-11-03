@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
@@ -348,8 +349,27 @@ namespace HsPuzzleBridge
         /// <summary>Local bar point (x right, y down from the top-left) → root space.</summary>
         private static Vector3 L(float x, float y, float lift = 0f) => new Vector3(x, lift, -y);
 
+        /// <summary>The screenshot tour's pointer (bar-local, as MouseLocal), or null for the real mouse.</summary>
+        internal static Vector2? TourMouse;
+        /// <summary>The screenshot tour's hovered event (its index), or -1: the pointer's nearest event as usual.</summary>
+        internal static int TourEvent = -1;
+
+        /// <summary>For the tour: a button's centre and a time's place on the track, bar-local.</summary>
+        internal static Vector2 ButtonCentre(int button) => ButtonRects[button].center;
+        internal static int ButtonCount => ButtonRects.Length;
+        internal static Vector2 TrackPoint(float ms) => new Vector2(XAt(ms), BarH / 2f);
+        internal static bool Showing => _root != null && _root.activeSelf && ReplayTimeline.Ready;
+
+        /// <summary>The language changed (the tour): the bar's pieces and its tooltip made again.</summary>
+        internal static void Relabel()
+        {
+            _builtVersion = -1;
+            HideTooltip();
+        }
+
         private static Vector2 MouseLocal()
         {
+            if (TourMouse.HasValue) return TourMouse.Value;
             var m = Input.mousePosition;
             return new Vector2((m.x - _origin.x) / _refPx, (_origin.y - m.y) / _refPx);
         }
@@ -396,6 +416,12 @@ namespace HsPuzzleBridge
             var hit = new Rect(_track.x - 6f, BarH / 2f - TrackHitH / 2f, _track.width + 12f, TrackHitH);
             bool overTrack = !Compact && (hit.Contains(mouse) || (_trackPressed && Input.GetMouseButton(0)));
             _hover = overTrack ? HoverAt(mouse.x) : default;
+            var tourPoints = ReplayTimeline.Points;
+            if (TourEvent >= 0 && tourPoints != null && TourEvent < tourPoints.Length)
+            {
+                float ms = tourPoints[TourEvent].Ms;
+                _hover = new Hover { On = true, Ms = ms, X = XAt(ms), Event = TourEvent };
+            }
 
             if (Input.GetMouseButtonDown(0))
             {
@@ -505,9 +531,10 @@ namespace HsPuzzleBridge
 
         // ------------------------------------------------------------------ tooltip
 
-        private static readonly string[] ButtonTips =
+        private static readonly string[] ButtonTips = // catalog keys, by Button; the size button's tip depends on the state
         {
-            "Previous turn", "Previous event", "Pause / play", "Next event", "Next turn", "Speed", null, "Report a bug",
+            "bar.tip.prevTurn", "bar.tip.prevEvent", "bar.tip.pausePlay", "bar.tip.nextEvent", "bar.tip.nextTurn", "bar.tip.speed",
+            null, "bar.tip.bug",
         };
 
         private static void UpdateTooltip()
@@ -517,21 +544,22 @@ namespace HsPuzzleBridge
             if (_hover.On)
             {
                 var points = ReplayTimeline.Points;
-                head = $"Turn {ReplayTimeline.TurnAt(_hover.Ms)} · {ReplayTimeline.Clock(_hover.Ms)}";
+                head = Strings.F("bar.turnAt", ReplayTimeline.TurnAt(_hover.Ms), ReplayTimeline.Clock(_hover.Ms));
                 body = _hover.Event >= 0 ? ReplayTimeline.Describe(points[_hover.Event]) : "";
                 if (_hover.Gap.HasValue)
                 {
                     var g = _hover.Gap.Value;
-                    head = $"Disconnected · {ReplayTimeline.Clock(g.x)}";
-                    body = $"The game lost its connection here and reconnected {ReplayTimeline.Clock(g.y - g.x)} later";
+                    head = Strings.F("bar.disconnectedAt", ReplayTimeline.Clock(g.x));
+                    body = Strings.F("bar.disconnectedBody", ReplayTimeline.Clock(g.y - g.x));
                 }
                 x = _hover.X;
             }
             else if (_hoverButton != null)
             {
                 var r = ButtonRects[(int)_hoverButton.Value];
-                head = _hoverButton == Button.Size ? (Compact ? "Show the timeline" : "Hide the timeline")
-                    : ButtonTips[(int)_hoverButton.Value];
+                string tip = ButtonTips[(int)_hoverButton.Value];
+                head = _hoverButton == Button.Size ? Strings.T(Compact ? "bar.tip.showTimeline" : "bar.tip.hideTimeline")
+                    : tip == null ? null : Strings.T(tip);
                 body = "";
                 x = r.center.x;
             }
@@ -780,7 +808,7 @@ namespace HsPuzzleBridge
             }
             float speed = ReplayTimeline.Speed;
             // Paused: the speed play resumes at (the pause button shows the pause).
-            SetText(_speedText, "x" + Mathf.RoundToInt(speed > 0f ? speed : ReplayTimeline.ResumeSpeed), ButtonRects[(int)Button.Speed].center.x,
+            SetText(_speedText, Strings.F("bar.speed", Mathf.RoundToInt(speed > 0f ? speed : ReplayTimeline.ResumeSpeed)), ButtonRects[(int)Button.Speed].center.x,
                     UberText.AlignmentOptions.Center);
         }
 

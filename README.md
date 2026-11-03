@@ -20,6 +20,10 @@ through a fight, or watch at up to x4.
   outside the Hearthstone folder, where updates and reinstalls can't reach it.
 - **Share** a game with the arrow next to its place: it lands on your clipboard as a file. **Ctrl+V** on the
   Replays page takes one back, as does **Import**, which also reads a `Power.log` from Hearthstone's `Logs`.
+- **In Hearthstone's language:** English, Deutsch, Français, Italiano, Español (EU and AL), Português (BR), Polski,
+  日本語, 한국어, 简体中文, 繁體中文 and ไทย; a Russian client shows English. For English in any client, set
+  `Language = enUS` under `[Localization]` in `BepInEx\config\com.testhsserver.puzzlebridge.cfg`. A word that reads
+  wrong in yours? Report it with the bug button.
 
 ![The Imported tab: games imported from shared files and from a Power.log, each with a bin in place of its star](images/replays-imported.webp)
 

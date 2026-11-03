@@ -1,3 +1,4 @@
+using HsPuzzleBridge.Localization;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -23,7 +24,7 @@ namespace HsPuzzleBridge
             if (_process != null) return;
             string folder = ReplayLibrary.FolderOf(view);
             string game = folder != null ? ReplayLibrary.RecordingIn(folder, id) : null;
-            if (game == null) { Status("Replays: this replay's file is missing", true); return; }
+            if (game == null) { Status(Strings.T("share.missing"), true); return; }
             try
             {
                 Directory.CreateDirectory(Folder);
@@ -34,7 +35,7 @@ namespace HsPuzzleBridge
             catch (Exception e)
             {
                 Plugin.Log.LogWarning("Share: can't make the shared folder: " + e.Message);
-                Status("Replays: couldn't share the replay", true);
+                Status(Strings.T("share.failed"), true);
                 return;
             }
             _id = id;
@@ -55,13 +56,13 @@ namespace HsPuzzleBridge
                 _process = new Process { StartInfo = start, EnableRaisingEvents = true };
                 _process.Exited += (_, __) => _done = true;
                 _process.Start();
-                Status("Replays: preparing the replay to share…", false);
+                Status(Strings.T("share.preparing"), false);
             }
             catch (Exception e)
             {
                 Plugin.Log.LogWarning($"Share: the copy didn't start ({start.FileName}): {e.Message}");
                 _process = null;
-                Status("Replays: couldn't share the replay", true);
+                Status(Strings.T("share.failed"), true);
             }
         }
 
@@ -76,17 +77,17 @@ namespace HsPuzzleBridge
             if (code != 0 || !File.Exists(_copy))
             {
                 Plugin.Log.LogWarning($"Share: the copy of {_id} failed: {error}");
-                Status("Replays: couldn't share the replay", true);
+                Status(Strings.T("share.failed"), true);
                 return;
             }
             if (!FileClipboard.SetFiles(new[] { _copy }))
             {
                 Plugin.Log.LogWarning("Share: the clipboard is busy");
-                Status("Replays: the clipboard is busy, try again", true);
+                Status(Strings.T("share.clipboardBusy"), true);
                 return;
             }
             Plugin.Log.LogInfo($"Share: {_id} on the clipboard ({new FileInfo(_copy).Length / 1024} KB)");
-            Status("Replay copied: paste it into a chat with Ctrl+V", false);
+            Status(Strings.T("share.copied"), false);
         }
 
         private static void Status(string text, bool error)
