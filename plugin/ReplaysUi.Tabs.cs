@@ -63,7 +63,27 @@ namespace HsPuzzleBridge
         private static Vector3 _titleHome, _titleScale; // the title's own place and size (it labels the middle tab)
         private static bool _tabsBuilt, _tabsLogged;
 
-        private static bool HasTabs => _tabsBuilt;
+        /// <summary>
+        /// The tabs can only exist while the page they are cut into does, and the lobby rebuilds that
+        /// page on a scene load (a match, spectating, a resolution change): our objects go with it.
+        /// Ask the objects rather than the flag, which outlives them.
+        /// </summary>
+        private static bool HasTabs => _tabsBuilt && _tabPanel != null && _tabFrame != null;
+
+        /// <summary>Forget the tab objects: the page that held them is gone.</summary>
+        private static void ResetTabs()
+        {
+            _tabsBuilt = false;
+            _tabsLogged = false;
+            _tabFrame = null;
+            _tabPanel = null;
+            for (int i = 0; i < _tabHits.Length; i++)
+            {
+                _tabHits[i] = null;
+                _tabTexts[i] = null;
+                _tabHover[i] = false;
+            }
+        }
 
         /// <summary>The label the middle tab (the page's own title text) shows.</summary>
         private static string MiddleTabName => Strings.T(TabKeys[1]);
@@ -71,7 +91,9 @@ namespace HsPuzzleBridge
         /// <summary>The tabs, from the frame's texture; false when the frame isn't as expected (the arrows then).</summary>
         private static bool CreateTabs()
         {
-            if (_tabsBuilt || _title == null) return _tabsBuilt;
+            if (HasTabs) return true;   // built into the page that is still up
+            if (_tabsBuilt) ResetTabs(); // the page was rebuilt under us: build them again
+            if (_title == null) return false;
             var frame = _title.transform.parent != null ? _title.transform.parent.Find("Frame") : null;
             var renderer = frame != null ? frame.GetComponent<MeshRenderer>() : null;
             var tex = renderer != null && renderer.sharedMaterial != null ? renderer.sharedMaterial.mainTexture : null;
